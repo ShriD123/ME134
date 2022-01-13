@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 #
-#   trajectory_generator.py
-#
-#   Create a continuous stream of joint positions, to be animated.
-#
 #   Publish:   /joint_states   sensor_msgs/JointState
 #
 import rospy
@@ -36,22 +32,23 @@ class Generator:
         self.kin = kin.Kinematics(robot, 'world', 'tip')  
 
         # Initialize the relevant segment parameters
-        q_init = np.array([0.0, 0.5, -1.0]).reshape((3,1))
-        x_init = np.array([0.0, 0.0, 0.0]).reshape((3,1))
+        x_init = np.array([0.0, 1.25, 0.01]).reshape((3,1))
+        q_guess = np.array([0.0, 0.5, -1.0]).reshape((3,1))
+        q_init = self.kin.ikin(x_init, q_guess)
         self.q_prev = q_init
-        amplitude = 0.5
-        frequency = 1
+        amplitude = 0.25
+        frequency = 1.0
         self.index = 0
         self.t0    = 0.0
         
-        #self.segments = (Hold(q_init, 1.0, 'Joint'),
-        #                 SineX(x_init, 1.0, amplitude, frequency, math.inf))
-        self.segments = (Hold(q_init, 1.0, 'Joint'))
+        self.segments = (Hold(q_init, 1.0, 'Joint'),
+                         SineX(x_init, 0.0, amplitude, frequency, math.inf))
 
     # Update every 10ms!
     def update(self, t):
         # Create an empty joint state message.
         cmdmsg = JointState()
+        cmdmsg.name = ['theta1', 'theta2', 'theta3']
         
         # If the current segment is done, shift to the next.
         if (t - self.t0 >= self.segments[self.index].duration()):
@@ -67,16 +64,18 @@ class Generator:
             return
 
         if (self.segments[self.index].space() == 'Joint'):
-            # Conducting the multiplicity flip TODO
+            # Conducting the multiplicity flip 
             (cmdmsg.position, cmdmsg.velocity) = \
             self.segments[self.index].evaluate(t-self.t0)
               
         elif (self.segments[self.index].space() == 'Task'):
             (cart_position, cart_velocity) = \
             self.segments[self.index].evaluate(t-self.t0)
-            cmdmsg.position = self.kin.ikin(cart_position, self.q_prev)
+            cart_pos = np.array(cart_position).reshape((3,1))
+            cart_vel = np.array(cart_velocity).reshape((3,1))
+            cmdmsg.position = self.kin.ikin(cart_pos, self.q_prev)
             (T, J) = self.kin.fkin(cmdmsg.position)
-            cmdmsg.velocity = np.linalg.inv(J[0:3,0:3]) @ cart_velocity
+            cmdmsg.velocity = np.linalg.inv(J[0:3,0:3]) @ cart_vel
             self.q_prev = cmdmsg.position
         else:
             raise ValueError('Unknown Spline Type')

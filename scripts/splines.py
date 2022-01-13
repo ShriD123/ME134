@@ -202,7 +202,7 @@ class SineX:
         # Compute and return the position and velocity.
         x = self.A*math.sin(self.w*t + self.tau)
         xdot = self.A*self.w*math.cos(self.w*t + self.tau)
-        p = np.array([x, self.y, self.z]).reshape((3,1))
-        v = np.array([xdot, 0.0, 0.0]).reshape((3,1))
+        p = [x, self.y[0], self.z[0]]
+        v = [xdot, 0.0, 0.0]
         return (p,v)
 
