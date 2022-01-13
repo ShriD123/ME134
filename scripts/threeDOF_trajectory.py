@@ -11,9 +11,10 @@ import math
 import kinematics as kin
 import numpy as np
 
-from splines import CubicSpline, Goto, Hold, Stay, QuinticSpline, Goto5
+from splines import CubicSpline, Goto, Hold, Stay, QuinticSpline, Goto5, SineX
 from kinematics import p_from_T, q_from_T, R_from_T, T_from_Rp, Rx, Ry, Rz
 from sensor_msgs.msg   import JointState
+from urdf_parser_py.urdf import Robot
 
 
 #
@@ -34,19 +35,18 @@ class Generator:
         # Instantiate the Kinematics
         self.kin = kin.Kinematics(robot, 'world', 'tip')  
 
-        # Initialize the current segment index and starting time t0.
-        q_init = np.array([]).reshape((7,1))
+        # Initialize the relevant segment parameters
+        q_init = np.array([0.0, 0.5, -1.0]).reshape((3,1))
+        x_init = np.array([0.0, 0.0, 0.0]).reshape((3,1))
         self.q_prev = q_init
+        amplitude = 0.5
+        frequency = 1
         self.index = 0
         self.t0    = 0.0
-        self.t_prev = 0.0
-        self.lamb = 5
         
-        self.segments = (Hold(0.0, 1.0, 'Path'),
-                         Goto(0.0, 1.0, 1.5, 'Path'),
-                         Goto(1.0, 2.0, 1.5, 'Path'),
-                         Goto(2.0, 1.0, 1.5, 'Path'),
-                         Goto(1.0, 0.0, 1.5, 'Path'))
+        #self.segments = (Hold(q_init, 1.0, 'Joint'),
+        #                 SineX(x_init, 1.0, amplitude, frequency, math.inf))
+        self.segments = (Hold(q_init, 1.0, 'Joint'))
 
     # Update every 10ms!
     def update(self, t):
@@ -67,16 +67,19 @@ class Generator:
             return
 
         if (self.segments[self.index].space() == 'Joint'):
-        	# Set the message positions/velocities as a function of time.
-       		(cmdmsg.position, cmdmsg.velocity) = \
+            # Conducting the multiplicity flip TODO
+            (cmdmsg.position, cmdmsg.velocity) = \
             self.segments[self.index].evaluate(t-self.t0)
+              
+        elif (self.segments[self.index].space() == 'Task'):
+            (cart_position, cart_velocity) = \
+            self.segments[self.index].evaluate(t-self.t0)
+            cmdmsg.position = self.kin.ikin(cart_position, self.q_prev)
+            (T, J) = self.kin.fkin(cmdmsg.position)
+            cmdmsg.velocity = np.linalg.inv(J[0:3,0:3]) @ cart_velocity
+            self.q_prev = cmdmsg.position
         else:
-        	(cart_position, cart_velocity) = \
-        	self.segments[self.index].evaluate(t-self.t0)
-        	cmdmsg.position = self.kin.ikin(cart_position, self.last_guess)
-        	(T, J) = self.kin.fkin(cmdmsg.position)
-        	cmdmsg.velocity = np.linalg.inv(J[0:3,0:3]) @ cart_velocity
-        	self.last_guess = cmdmsg.position
+            raise ValueError('Unknown Spline Type')
 
         # Send the command (with the current time).
         cmdmsg.header.stamp = rospy.Time.now()

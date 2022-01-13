@@ -37,7 +37,7 @@
 #   The p0,pf,v0,vf,a0,af may be NumPy arrays.
 #
 import math
-
+import numpy as np
 
 #
 #  Cubic Segment Objects
@@ -167,4 +167,42 @@ class GotoLin(LinearSpline):
     # Uses discontinuous velocity values.
     def __init__(self, p0, pf, T, space='Joint'):
         LinearSpline.__init__(self, p0, pf, T, space)
+        
+        
+#
+#  Sinusoidal Object in only the X-direction
+#
+#  This object compute/store the 4 sine parameters, along with the
+#  duration and given space.  Only the phase shift is calculated.
+#  Note the space is only for information; it doesn't change the computation.
+#
+class SineX:
+    # Initialize.
+    def __init__(self, pos, t, amp, freq, T, space='Task'):
+        # Precompute the sinusoidal parameters
+        self.T = T                                  # Duration
+        self.A = amp                                # Amplitude
+        self.w = freq                               # Frequency                 
+        self.tau = math.asin(pos[0]/amp) - freq*t   # Phase Shift
+        self.y = pos[1]                             # Y-Pos (since constant)
+        self.z = pos[2]                             # Z-Pos (since constant)
+        # Also save the space
+        self.usespace = space
+
+    # Return the segment's space
+    def space(self):
+        return self.usespace
+
+    # Report the segment's duration (time length).
+    def duration(self):
+        return(self.T)
+
+    # Compute the position/velocity for a given time (w.r.t. t=0 start).
+    def evaluate(self, t):
+        # Compute and return the position and velocity.
+        x = self.A*math.sin(self.w*t + self.tau)
+        xdot = self.A*self.w*math.cos(self.w*t + self.tau)
+        p = np.array([x, self.y, self.z]).reshape((3,1))
+        v = np.array([xdot, 0.0, 0.0]).reshape((3,1))
+        return (p,v)
 
