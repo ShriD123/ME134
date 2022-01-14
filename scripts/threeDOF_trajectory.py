@@ -12,7 +12,30 @@ from kinematics import p_from_T, q_from_T, R_from_T, T_from_Rp, Rx, Ry, Rz
 from sensor_msgs.msg   import JointState
 from urdf_parser_py.urdf import Robot
 
+##### Global Variables #####
+TASK = 1
+JOINT = 2
 
+
+
+###############################################################################
+#
+#  Trajectory Class
+#
+class Trajectory:
+    # Initialize
+    def __init__(self, type, spline):
+        self.type = type
+        self.spline = spline
+        
+    def type(self):
+        return self.type
+    
+    def update(self, t, t0):
+        (a, b) = self.spline.evaluate(t-t0)
+        return (a, b)
+
+###############################################################################
 #
 #  Generator Class
 #
@@ -56,12 +79,9 @@ class Generator:
             self.index = (self.index+1)
             # If the list were cyclic, you could go back to the start with
             #self.index = (self.index+1) % len(self.segments)
-            #self.last_guess = self.reset_guess 
+            #self.last_guess = self.reset_guess  
             
-        # Check whether we are done with all segments
-        if (self.index >= len(self.segments)):
-            rospy.signal_shutdown("Done with motion")
-            return
+        
 
         if (self.segments[self.index].space() == 'Joint'):
             # Conducting the multiplicity flip 
