@@ -12,11 +12,6 @@ from kinematics import p_from_T, q_from_T, R_from_T, T_from_Rp, Rx, Ry, Rz
 from sensor_msgs.msg   import JointState
 from urdf_parser_py.urdf import Robot
 
-##### Global Variables #####
-TASK = 1
-JOINT = 2
-
-
 
 ###############################################################################
 #
@@ -24,15 +19,18 @@ JOINT = 2
 #
 class Trajectory:
     # Initialize
-    def __init__(self, type, spline):
-        self.type = type
+    def __init__(self, spline):
         self.spline = spline
+        self.space = spline.space()
         
-    def type(self):
-        return self.type
+    def traj_space(self):
+        return self.space
     
-    def update(self, t, t0):
-        (a, b) = self.spline.evaluate(t-t0)
+    def spline(self):
+        return self.spline
+    
+    def update(self, t):
+        (a, b) = self.spline.evaluate(t)
         return (a, b)
 
 ###############################################################################
@@ -54,45 +52,45 @@ class Generator:
         # Instantiate the Kinematics
         self.kin = kin.Kinematics(robot, 'world', 'tip')  
 
-        # Initialize the relevant segment parameters
-        x_init = np.array([0.0, 1.25, 0.01]).reshape((3,1))
+        # Initialize the relevant joint and position parameters
+        self.x_init = np.array([0.0, 1.25, 0.01]).reshape((3,1))
         q_guess = np.array([0.0, 0.5, -1.0]).reshape((3,1))
-        q_init = self.kin.ikin(x_init, q_guess)
-        self.q_prev = q_init
-        amplitude = 0.25
-        frequency = 1.0
-        self.index = 0
-        self.t0    = 0.0
+        self.q_init = self.kin.ikin(self.x_init, q_guess)
+        self.q_prev = self.q_init
         
-        self.segments = (Hold(q_init, 1.0, 'Joint'),
-                         SineX(x_init, 0.0, amplitude, frequency, math.inf))
+        # Define the explicit value of the sinusoidal function
+        self.amplitude = 0.25
+        self.frequency = 1.0
+        
+        # Indicate without an explicit event how long to hold in initial state
+        self.hold   = True                                            
+        self.holdTime = 1.0
+        
+        # Initialize with holding trajectory
+        self.trajectory = Trajectory(Hold(self.q_init, 1.0, 'Joint'))
 
     # Update every 10ms!
     def update(self, t):
         # Create an empty joint state message.
         cmdmsg = JointState()
         cmdmsg.name = ['theta1', 'theta2', 'theta3']
-        
-        # If the current segment is done, shift to the next.
-        if (t - self.t0 >= self.segments[self.index].duration()):
-            self.t0    = self.t0 + self.segments[self.index].duration()
-            self.index = (self.index+1)
-            # If the list were cyclic, you could go back to the start with
-            #self.index = (self.index+1) % len(self.segments)
-            #self.last_guess = self.reset_guess  
             
+        # Change from holding to the sinusoidal trajectory
+        if (self.hold):
+            if (t >= self.holdTime):
+                self.trajectory = \
+                Trajectory(SineX(self.x_init, t, self.amplitude, self.frequency, math.inf))
+                self.hold = False
         
-
-        if (self.segments[self.index].space() == 'Joint'):
-            # Conducting the multiplicity flip 
-            (cmdmsg.position, cmdmsg.velocity) = \
-            self.segments[self.index].evaluate(t-self.t0)
+        # Determine which trajectory and implement functionality
+        if (self.trajectory.traj_space() == 'Joint'):
+            (cmdmsg.position, cmdmsg.velocity) = self.trajectory.update(t)
               
-        elif (self.segments[self.index].space() == 'Task'):
-            (cart_position, cart_velocity) = \
-            self.segments[self.index].evaluate(t-self.t0)
-            cart_pos = np.array(cart_position).reshape((3,1))
-            cart_vel = np.array(cart_velocity).reshape((3,1))
+        elif (self.trajectory.traj_space() == 'Task'):
+            (x, xdot) = self.trajectory.update(t)
+            cart_pos = np.array(x).reshape((3,1))
+            cart_vel = np.array(xdot).reshape((3,1))
+            
             cmdmsg.position = self.kin.ikin(cart_pos, self.q_prev)
             (T, J) = self.kin.fkin(cmdmsg.position)
             cmdmsg.velocity = np.linalg.inv(J[0:3,0:3]) @ cart_vel
@@ -103,7 +101,6 @@ class Generator:
         # Send the command (with the current time).
         cmdmsg.header.stamp = rospy.Time.now()
         self.pub.publish(cmdmsg)
-
 
 #
 #  Main Code
