@@ -33,6 +33,7 @@ class Trajectory:
         (a, b) = self.spline.evaluate(t)
         return (a, b)
 
+
 ###############################################################################
 #
 #  Generator Class
@@ -45,6 +46,10 @@ class Generator:
         # we don't start sending messages until someone is listening.
         self.pub = rospy.Publisher("/joint_states", JointState)
         rospy.sleep(0.25)
+        
+        # Create subscribers for the general case and events.
+        # self.sub = rospy.Subscriber('/actual', Type?, self.callback(cmdmsg))
+        # self.sub_e = rospy.Subscriber('/event', Type?, self.callback_event(cmdmsg))
         
         # Grab the robot's URDF from the parameter server.
         robot = Robot.from_parameter_server()
@@ -68,6 +73,7 @@ class Generator:
         
         # Initialize with holding trajectory
         self.trajectory = Trajectory(Hold(self.q_init, 1.0, 'Joint'))
+
 
     # Update every 10ms!
     def update(self, t):
@@ -101,7 +107,36 @@ class Generator:
         # Send the command (with the current time).
         cmdmsg.header.stamp = rospy.Time.now()
         self.pub.publish(cmdmsg)
-
+        
+    
+    # Callback Function (General used for what?)
+    def callback(self, msg):
+        # How do I code the rospy listener?
+        # Also where exactly do we call this function?
+        rospy.loginfo('I heard %s', msg)
+       
+       
+    # Callback Function for the Event    
+    def callback_event(self, msg):
+        # How do I code the rospy listener?
+        # Also where exactly do we call this function?
+        
+        # Extract relevant state parameters from the msg
+        position = msg[0]
+        velocity = msg[1]
+        
+        intermediate_position = np.array([0.0, 0.0, 0.0]) #TODO
+        intermediate_velocity = np.array([0.0, 0.0, 0.0]) #TODO
+        
+        
+        # Change the trajectory to a joint spline given the current state
+        self.trajectory = Trajectory(Goto(position, intermediate_position, 5.0, 'Joint'),
+                                     Goto(intermediate_position, intermediate_position, 5.0, 'Joint'))
+        # NEED TO ADJUST THE CODE FOR THE TRAJECTORY CLASS TO HANDLE MULTIPLE SPLINES INSIDE IT
+        # ALSO NEED TO DETERMINE HOW TO ENSURE IT PASSES MULTIPLICITY AND DOESN'T JUST COME BACK... probably Quintic spline
+    
+        
+###############################################################################
 #
 #  Main Code
 #
