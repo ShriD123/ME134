@@ -69,7 +69,12 @@ class Generator:
         
         # Indicate without an explicit event how long to hold in initial state
         self.hold   = True                                            
-        self.holdTime = 1.0
+        self.hold_time = 1.0
+        
+        # Indicate without an explicit event how long to perform the joint flip
+        self.flip = False
+        self.flip_time = self.frequency*5
+        self.flip_moment = 0.0
         
         # Initialize with holding trajectory
         self.trajectory = Trajectory(Hold(self.q_init, 1.0, 'Joint'))
@@ -83,10 +88,17 @@ class Generator:
             
         # Change from holding to the sinusoidal trajectory
         if (self.hold):
-            if (t >= self.holdTime):
+            if (t >= self.hold_time):
                 self.trajectory = \
                 Trajectory(SineX(self.x_init, t, self.amplitude, self.frequency, math.inf))
                 self.hold = False
+                
+        # Change from flipping to the sinusoidal trajectory
+        if (self.flip):
+            if (t >= self.flip_moment + self.flip_time):
+                self.trajectory = \
+                Trajectory(SineX(self.x_init, t, self.amplitude, self.frequency, math.inf))
+                self.flip = False
         
         # Determine which trajectory and implement functionality
         if (self.trajectory.traj_space() == 'Joint'):
@@ -122,12 +134,18 @@ class Generator:
         # Also where exactly do we call this function?
         
         # Extract relevant state parameters from the msg
-        position = msg[0]
+        position = msg[0]           # Joint Position Currently
         velocity = msg[1]
+        curr_t = msg[2]
         
-        intermediate_position = np.array([0.0, 0.0, 0.0]) #TODO
-        intermediate_velocity = np.array([0.0, 0.0, 0.0]) #TODO
+        # Update values for the update function
+        self.flip = True
+        self.flip_moment = curr_t
         
+        # Flipped values of the initial position NEED TO UPDATE URDF AND THE Q GUESS SO NO BUMP INTO TABLE
+        joint_flip = -1*self.q_init      
+        
+        self.trajectory = Trajectory(Goto(position, joint_flip, self.flip_time, 'Joint'))
         
         # Change the trajectory to a joint spline given the current state
         self.trajectory = Trajectory(Goto(position, intermediate_position, 5.0, 'Joint'),
