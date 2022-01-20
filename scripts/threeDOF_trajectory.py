@@ -10,6 +10,7 @@ import numpy as np
 from splines import CubicSpline, Goto, Hold, Stay, QuinticSpline, Goto5, SineX
 from kinematics import p_from_T, q_from_T, R_from_T, T_from_Rp, Rx, Ry, Rz
 from sensor_msgs.msg   import JointState
+from std_msgs.msg import String
 from urdf_parser_py.urdf import Robot
 
 
@@ -48,8 +49,7 @@ class Generator:
         rospy.sleep(0.25)
         
         # Create subscribers for the general case and events.
-        # self.sub = rospy.Subscriber('/actual', Type?, self.callback(cmdmsg))
-        # self.sub_e = rospy.Subscriber('/event', Type?, self.callback_event(cmdmsg))
+        self.sub = rospy.Subscriber('/switch', String, self.callback)
         
         # Grab the robot's URDF from the parameter server.
         robot = Robot.from_parameter_server()
@@ -109,12 +109,10 @@ class Generator:
         self.pub.publish(cmdmsg)
         
     
-    # Callback Function (General used for what?)
+    # Callback Function
     def callback(self, msg):
-        # How do I code the rospy listener?
-        # Also where exactly do we call this function?
-        rospy.loginfo('I heard %s', msg)
-       
+        if (msg == 'Switch'):
+            #Run spline switch function
        
     # Callback Function for the Event    
     def callback_event(self, msg):
