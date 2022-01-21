@@ -10,6 +10,7 @@ import numpy as np
 from splines import CubicSpline, Goto, Hold, Stay, QuinticSpline, Goto5, SineX
 from kinematics import p_from_T, q_from_T, R_from_T, T_from_Rp, Rx, Ry, Rz
 from sensor_msgs.msg   import JointState
+from std_msgs.msg import String
 from urdf_parser_py.urdf import Robot
 
 
@@ -44,22 +45,24 @@ class Generator:
         # Create a publisher to send the joint commands.  Add some time
         # for the subscriber to connect.  This isn't necessary, but means
         # we don't start sending messages until someone is listening.
-        self.pub = rospy.Publisher("/joint_states", JointState)
+        self.pub = rospy.Publisher("/joint_states", JointState, queue_size=5)
         rospy.sleep(0.25)
         
         # Create subscribers for the general case and events.
-        # self.sub = rospy.Subscriber('/actual', Type?, self.callback(cmdmsg))
-        # self.sub_e = rospy.Subscriber('/event', Type?, self.callback_event(cmdmsg))
+        self.sub = rospy.Subscriber('/actual', JointState, self.callback_actual)
+        self.sub_e = rospy.Subscriber('/event', String, self.callback_event)
         
         # Grab the robot's URDF from the parameter server.
         robot = Robot.from_parameter_server()
 
         # Instantiate the Kinematics
-        self.kin = kin.Kinematics(robot, 'world', 'tip')  
+        self.kin = kin.Kinematics(robot, 'world', 'tip')
 
         # Initialize the relevant joint and position parameters
         self.x_init = np.array([0.0, 1.25, 0.01]).reshape((3,1))
         q_guess = np.array([0.0, 0.5, -1.0]).reshape((3,1))
+        
+        # Actually want to use the actual values in the future.
         self.q_init = self.kin.ikin(self.x_init, q_guess)
         self.q_prev = self.q_init
         
@@ -68,7 +71,7 @@ class Generator:
         self.frequency = 1.0
         
         # Indicate without an explicit event how long to hold in initial state
-        self.hold   = True                                            
+        self.hold   = True
         self.hold_time = 1.0
         
         # Indicate without an explicit event how long to perform the joint flip
@@ -76,8 +79,13 @@ class Generator:
         self.flip_time = self.frequency*5
         self.flip_moment = 0.0
         
+        # Initialize the state of the robot
+        self.curr_pos = self.q_init
+        self.curr_vel = np.array([0.0, 0.0, 0.0]).reshape((3,1))
+        self.curr_t = 0.0
+        
         # Initialize with holding trajectory
-        self.trajectory = Trajectory(Hold(self.q_init, 1.0, 'Joint'))
+        self.trajectory = Trajectory(Hold(self.curr_t, self.curr_pos, 1.0, 'Joint'))
 
 
     # Update every 10ms!
@@ -120,38 +128,31 @@ class Generator:
         cmdmsg.header.stamp = rospy.Time.now()
         self.pub.publish(cmdmsg)
         
+        # Store the command message
+        self.curr_pos = cmdmsg.position
+        self.curr_vel = cmdmsg.velocity
+        self.curr_t = t
+        
     
-    # Callback Function (General used for what?)
-    def callback(self, msg):
-        # How do I code the rospy listener?
-        # Also where exactly do we call this function?
+    # Callback Function 
+    def callback_actual(self, msg):
+        # Future Function to Implement to account for Gravity Compensation
+        # Also should read the initial joint pos of the motors to initialize the trajectory
         rospy.loginfo('I heard %s', msg)
        
        
     # Callback Function for the Event    
     def callback_event(self, msg):
-        # How do I code the rospy listener?
-        # Also where exactly do we call this function?
-        
-        # Extract relevant state parameters from the msg
-        position = msg[0]           # Joint Position Currently
-        velocity = msg[1]
-        curr_t = msg[2]
+        rospy.loginfo('Hello! I heard %s', msg.data)
         
         # Update values for the update function
         self.flip = True
-        self.flip_moment = curr_t
+        self.flip_moment = self.curr_t
         
         # Flipped values of the initial position NEED TO UPDATE URDF AND THE Q GUESS SO NO BUMP INTO TABLE
-        joint_flip = -1*self.q_init      
+        joint_flip = -1*self.q_init
         
-        self.trajectory = Trajectory(Goto(position, joint_flip, self.flip_time, 'Joint'))
-        
-        # Change the trajectory to a joint spline given the current state
-        self.trajectory = Trajectory(Goto(position, intermediate_position, 5.0, 'Joint'),
-                                     Goto(intermediate_position, intermediate_position, 5.0, 'Joint'))
-        # NEED TO ADJUST THE CODE FOR THE TRAJECTORY CLASS TO HANDLE MULTIPLE SPLINES INSIDE IT
-        # ALSO NEED TO DETERMINE HOW TO ENSURE IT PASSES MULTIPLICITY AND DOESN'T JUST COME BACK... probably Quintic spline
+        self.trajectory = Trajectory(Goto(self.curr_t, self.curr_pos, joint_flip, self.flip_time, 'Joint'))
     
         
 ###############################################################################
