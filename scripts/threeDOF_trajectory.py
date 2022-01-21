@@ -149,8 +149,12 @@ class Generator:
         self.flip = True
         self.flip_moment = self.curr_t
         
-        # Flipped values of the initial position NEED TO UPDATE URDF AND THE Q GUESS SO NO BUMP INTO TABLE
-        joint_flip = -1*self.q_init
+        # Joint angle corresponding to elbow-down, flipped multiplicity
+        q1 = math.pi + self.q_init[0]               
+        q2 = math.pi - self.q_init[1]               
+        q3 = -1 * self.q_init[2]                    
+
+        joint_flip = np.array([q1, q2, q3])
         
         self.trajectory = Trajectory(Goto(self.curr_t, self.curr_pos, joint_flip, self.flip_time, 'Joint'))
     
