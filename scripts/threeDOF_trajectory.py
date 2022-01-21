@@ -82,7 +82,7 @@ class Generator:
         
         # Define the explicit value of the sinusoidal function
         self.amplitude = 0.15
-        self.frequency = 0.75
+        self.frequency = 1.0
         self.start_t = 0.0
         
         # Indicate without an explicit event how long to hold in initial state
@@ -166,17 +166,16 @@ class Generator:
         self.flip_moment = self.curr_t
         
         # Joint angle corresponding to elbow-down, flipped multiplicity
-        q1 = math.pi + self.q_init[0]               
-        q2 = math.pi - self.q_init[1]               
-        q3 = -1 * self.q_init[2]                    
+        q1 = math.pi + self.curr_pos[0]               
+        q2 = math.pi - self.curr_pos[1]               
+        q3 = -1 * self.curr_pos[2]                    
         joint_flip = np.array([q1, q2, q3])
 
         # Joint velocities corresponding to elbow down, flipped multiplicity
-        #qdot1 = self.curr_vel[0]
-        #qdot2 = -1*self.curr_vel[1]
-        #qdot3 = -1*self.curr_vel[2]
-        #joint_flip_dot = np.array([qdot1, qdot2, qdot3])
-        joint_flip_dot = self.curr_vel
+        qdot1 = self.curr_vel[0]
+        qdot2 = -1*self.curr_vel[1]
+        qdot3 = -1*self.curr_vel[2]
+        joint_flip_dot = np.array([qdot1, qdot2, qdot3])
 
         print('Curr Pos:\n', self.curr_pos)
         print('Curr Vel:\n', self.curr_vel)
