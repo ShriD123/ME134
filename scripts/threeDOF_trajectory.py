@@ -111,6 +111,7 @@ class Generator:
         # Determine which trajectory and implement functionality
         if (self.trajectory.traj_space() == 'Joint'):
             (cmdmsg.position, cmdmsg.velocity) = self.trajectory.update(t)
+            self.q_prev = cmdmsg.position
               
         elif (self.trajectory.traj_space() == 'Task'):
             (x, xdot) = self.trajectory.update(t)
@@ -132,6 +133,7 @@ class Generator:
         self.curr_pos = cmdmsg.position
         self.curr_vel = cmdmsg.velocity
         self.curr_t = t
+        print(self.curr_pos)
         
     
     # Callback Function 
@@ -158,7 +160,7 @@ class Generator:
         
         self.trajectory = Trajectory(Goto(self.curr_t, self.curr_pos, joint_flip, self.flip_time, 'Joint'))
     
-        
+
 ###############################################################################
 #
 #  Main Code
