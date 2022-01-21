@@ -42,12 +42,22 @@ class Trajectory:
 class Generator:
     # Initialize.
     def __init__(self):
+        # Collect the motor names, which defines the dofs (useful to know)
+        self.motors = ['theta1', 'theta2', 'theta3']
+        self.dofs = len(self.motors)
+        
         # Create a publisher to send the joint commands.  Add some time
         # for the subscriber to connect.  This isn't necessary, but means
         # we don't start sending messages until someone is listening.
+
+        # For RVIZ
         self.pub = rospy.Publisher("/joint_states", JointState, queue_size=5)
+        # For HEBI Motors
+        # self.pub = rospy.Publisher("/hebi/joint_commands", JointState, queue_size=5)
         rospy.sleep(0.25)
         
+        # IMPLEMENT FINDING THE STARTING POSITIONS LATER AND THEN MOVE TO ZERO STARTING OUT
+
         # Create subscribers for the general case and events.
         self.sub = rospy.Subscriber('/actual', JointState, self.callback_actual)
         self.sub_e = rospy.Subscriber('/event', String, self.callback_event)
@@ -67,16 +77,16 @@ class Generator:
         self.q_prev = self.q_init
         
         # Define the explicit value of the sinusoidal function
-        self.amplitude = 0.25
-        self.frequency = 1.0
+        self.amplitude = 0.50
+        self.frequency = 0.75
         
         # Indicate without an explicit event how long to hold in initial state
         self.hold   = True
-        self.hold_time = 1.0
+        self.hold_time = 2.0
         
         # Indicate without an explicit event how long to perform the joint flip
         self.flip = False
-        self.flip_time = self.frequency*5
+        self.flip_time = self.frequency*10
         self.flip_moment = 0.0
         
         # Initialize the state of the robot
@@ -85,14 +95,14 @@ class Generator:
         self.curr_t = 0.0
         
         # Initialize with holding trajectory
-        self.trajectory = Trajectory(Hold(self.curr_t, self.curr_pos, 1.0, 'Joint'))
+        self.trajectory = Trajectory(Hold(self.curr_t, self.curr_pos, self.hold_time, 'Joint'))
 
 
     # Update every 10ms!
     def update(self, t):
         # Create an empty joint state message.
         cmdmsg = JointState()
-        cmdmsg.name = ['theta1', 'theta2', 'theta3']
+        cmdmsg.name = self.motors
             
         # Change from holding to the sinusoidal trajectory
         if (self.hold):
@@ -133,7 +143,6 @@ class Generator:
         self.curr_pos = cmdmsg.position
         self.curr_vel = cmdmsg.velocity
         self.curr_t = t
-        print(self.curr_pos)
         
     
     # Callback Function 
@@ -158,7 +167,7 @@ class Generator:
 
         joint_flip = np.array([q1, q2, q3])
         
-        self.trajectory = Trajectory(Goto(self.curr_t, self.curr_pos, joint_flip, self.flip_time, 'Joint'))
+        self.trajectory = Trajectory(Goto5(self.curr_t, self.curr_pos, joint_flip, self.flip_time, 'Joint'))
     
 
 ###############################################################################
