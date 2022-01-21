@@ -71,18 +71,24 @@ class CubicSpline:
     def evaluate(self, t):
         dt = t - self.t0
         # Compute and return the position and velocity.
+        p = self.a + self.b * dt +   self.c * dt**2 +   self.d * dt**3
+        v =          self.b     + 2*self.c * dt    + 3*self.d * dt**2
         return (p,v)
 
 class Goto(CubicSpline):
     # Use zero initial/final velocities (of same size as positions).
-    def __init__(self, p0, pf, T, space='Joint'):
-        CubicSpline.__init__(self, p0, 0*p0, pf, 0*pf, T, space)
+    def __init__(self, t0, p0, pf, T, space='Joint'):
+        CubicSpline.__init__(self, t0, p0, 0*p0, pf, 0*pf, T, space)
 
 class Hold(Goto):
     # Use the same initial and final positions.
+    def __init__(self, t0, p, T, space='Joint'):
+        Goto.__init__(self, t0, p, p, T, space)
 
 class Stay(Hold):
     # Use an infinite time (stay forever).
+    def __init__(self, t0, p, space='Joint'):
+        Hold.__init__(self, t0, p, math.inf, space)
 
 
 #
@@ -94,6 +100,7 @@ class Stay(Hold):
 #
 class QuinticSpline:
     # Initialize.
+    def __init__(self, t0, p0, v0, a0, pf, vf, af, T, space='Joint'):
         # Precompute the six spline parameters.
         self.T = T
         self.a = p0
@@ -117,12 +124,15 @@ class QuinticSpline:
     # Compute the position/velocity for a given time (w.r.t. t=0 start).
     def evaluate(self, t):
         # Compute and return the position and velocity.
-        p = self.a + self.b * t +   self.c * t**2 +   self.d * t**3 +   self.e * t**4 +   self.f * t**5
-        v =          self.b     + 2*self.c * t    + 3*self.d * t**2 + 4*self.e * t**3 + 5*self.f * t**4
+        dt = t - self.t0
+        p = self.a + self.b * dt +   self.c * dt**2 +   self.d * dt**3 +   self.e * dt**4 +   self.f * dt**5
+        v =          self.b     + 2*self.c * dt    + 3*self.d * dt**2 + 4*self.e * dt**3 + 5*self.f * dt**4
         return (p,v)
 
 class Goto5(QuinticSpline):
     # Use zero initial/final velocities/accelerations (same size as positions).
+    def __init__(self, t0, p0, pf, T, space='Joint'):
+        QuinticSpline.__init__(self, t0, p0, 0*p0, 0*p0, pf, 0*pf, 0*pf, T, space)
         
 
 #
@@ -134,6 +144,7 @@ class Goto5(QuinticSpline):
 #
 class LinearSpline:
     # Initialize.
+    def __init__(self, t0, p0, pf, T, space='Joint'):
         # Precompute the two spline parameters.
         self.T = T
         self.a = p0
@@ -153,11 +164,15 @@ class LinearSpline:
     # Compute the position/velocity for a given time (w.r.t. t=0 start).
     def evaluate(self, t):
         # Compute and return the position and velocity.
+        dt = t - self.t0
+        p = self.a + self.b * dt
         v =          self.b
         return (p,v)
 
 class GotoLin(LinearSpline):
     # Uses discontinuous velocity values.
+    def __init__(self, t0, p0, pf, T, space='Joint'):
+        LinearSpline.__init__(self, t0, p0, pf, T, space)
         
         
 #
