@@ -93,6 +93,7 @@ class Generator:
         self.flip = False
         self.flip_time = 2 * math.pi / self.frequency
         self.flip_moment = 0.0
+        self.flip_count = 0
         
         # Initialize with holding trajectory
         # For future, we will want to implement this as a stack of trajectories
@@ -160,18 +161,26 @@ class Generator:
         # Update values for the update function
         self.flip = True
         self.flip_moment = self.curr_t
+        self.flip_count += 1
         
         # Joint angle corresponding to elbow-down, flipped multiplicity
-        q1 = math.pi + self.curr_pos[0]               
-        q2 = math.pi - self.curr_pos[1]               
-        q3 = -1 * self.curr_pos[2]                    
-        joint_flip = np.array([q1, q2, q3])
+        if (self.flip_count % 2 == 1):  # Odd number of flips, go counterclockwise
+            q1 = math.pi + self.curr_pos[0]               
+            q2 = math.pi - self.curr_pos[1]               
+            q3 = -1 * self.curr_pos[2]              
+        else:                           # Even number of flips, go clockwise
+            q1 = self.curr_pos[0] - math.pi
+            q2 = math.pi - self.curr_pos[1]
+            q3 = -1 * self.curr_pos[2]
+
+        joint_flip = np.array([q1, q2, q3]).reshape((3,1))
 
         # Joint velocities corresponding to elbow down, flipped multiplicity
         qdot1 = self.curr_vel[0]
         qdot2 = -1*self.curr_vel[1]
         qdot3 = -1*self.curr_vel[2]
-        joint_flip_dot = np.array([qdot1, qdot2, qdot3])
+
+        joint_flip_dot = np.array([qdot1, qdot2, qdot3]).reshape((3,1))
 
         # self.trajectory = Trajectory(Goto5(self.curr_t, self.curr_pos, joint_flip, self.flip_time, 'Joint'))
         self.trajectory = Trajectory(QuinticSpline(self.curr_t, self.curr_pos, self.curr_vel, self.curr_accel,
