@@ -49,10 +49,7 @@ class Generator:
         # Create a publisher to send the joint commands.  Add some time
         # for the subscriber to connect.  This isn't necessary, but means
         # we don't start sending messages until someone is listening.
-
-        # For RVIZ
         self.pub = rospy.Publisher("/joint_states", JointState, queue_size=5)
-        # For HEBI Motors
         # self.pub = rospy.Publisher("/hebi/joint_commands", JointState, queue_size=5)
         rospy.sleep(0.25)
         
@@ -75,13 +72,18 @@ class Generator:
         # Actually want to use the actual values in the future.
         # Initialize the state of the robot
         self.q_init = self.kin.ikin(self.x_init, q_guess)
+        # (T_i, J_i) = self.kin.fkin(self.q_init)
+        # self.x_init_act = p_from_T(T_i)
+
         self.curr_pos = self.q_init
         self.curr_vel = np.array([0.0, 0.0, 0.0]).reshape((3,1))
         self.curr_t = 0.0
+        self.curr_accel = np.array([0.0, 0.0, 0.0]).reshape((3,1))
         
         # Define the explicit value of the sinusoidal function
         self.amplitude = 0.15
         self.frequency = 0.75
+        self.start_t = 0.0
         
         # Indicate without an explicit event how long to hold in initial state
         self.hold   = True
@@ -89,10 +91,11 @@ class Generator:
         
         # Indicate without an explicit event how long to perform the joint flip
         self.flip = False
-        self.flip_time = self.frequency*10
+        self.flip_time = 2 * math.pi / self.frequency
         self.flip_moment = 0.0
         
         # Initialize with holding trajectory
+        # For future, we will want to implement this as a stack of trajectories
         self.trajectory = Trajectory(Hold(self.curr_t, self.curr_pos, self.hold_time, 'Joint'))
 
 
@@ -105,21 +108,26 @@ class Generator:
         # Change from holding to the sinusoidal trajectory
         if (self.hold):
             if (t >= self.hold_time):
+                self.start_t = t
                 self.trajectory = \
-                Trajectory(SineX(self.x_init, t, self.amplitude, self.frequency, math.inf))
+                Trajectory(SineX(self.x_init, self.start_t, self.amplitude, self.frequency, math.inf))
                 self.hold = False
                 
         # Change from flipping to the sinusoidal trajectory
         if (self.flip):
             if (t >= self.flip_moment + self.flip_time):
                 self.trajectory = \
-                Trajectory(SineX(self.x_init, t, self.amplitude, self.frequency, math.inf))
+                Trajectory(SineX(self.x_init, self.start_t, self.amplitude, self.frequency, math.inf))
                 self.flip = False
+
+                print('Curr Pos:\n', self.curr_pos)
+                print('Curr Vel:\n', self.curr_vel)
+                print('Curr Time:\n', self.curr_t)
+
         
         # Determine which trajectory and implement functionality
         if (self.trajectory.traj_space() == 'Joint'):
             (cmdmsg.position, cmdmsg.velocity) = self.trajectory.update(t)
-            self.curr_pos = cmdmsg.position
               
         elif (self.trajectory.traj_space() == 'Task'):
             (x, xdot) = self.trajectory.update(t)
@@ -129,18 +137,17 @@ class Generator:
             cmdmsg.position = self.kin.ikin(cart_pos, self.curr_pos)
             (T, J) = self.kin.fkin(cmdmsg.position)
             cmdmsg.velocity = np.linalg.inv(J[0:3,0:3]) @ cart_vel
-            self.curr_pos = cmdmsg.position
         else:
             raise ValueError('Unknown Spline Type')
 
-        # Send the command (with the current time).
-        cmdmsg.header.stamp = rospy.Time.now()
-        self.pub.publish(cmdmsg)
-        
         # Store the command message
         self.curr_pos = cmdmsg.position
         self.curr_vel = cmdmsg.velocity
         self.curr_t = t
+
+        # Send the command (with the current time).
+        cmdmsg.header.stamp = rospy.Time.now()
+        self.pub.publish(cmdmsg)
         
     
     # Callback Function 
@@ -162,10 +169,23 @@ class Generator:
         q1 = math.pi + self.q_init[0]               
         q2 = math.pi - self.q_init[1]               
         q3 = -1 * self.q_init[2]                    
-
         joint_flip = np.array([q1, q2, q3])
-        
-        self.trajectory = Trajectory(Goto5(self.curr_t, self.curr_pos, joint_flip, self.flip_time, 'Joint'))
+
+        # Joint velocities corresponding to elbow down, flipped multiplicity
+        #qdot1 = self.curr_vel[0]
+        #qdot2 = -1*self.curr_vel[1]
+        #qdot3 = -1*self.curr_vel[2]
+        #joint_flip_dot = np.array([qdot1, qdot2, qdot3])
+        joint_flip_dot = self.curr_vel
+
+        print('Curr Pos:\n', self.curr_pos)
+        print('Curr Vel:\n', self.curr_vel)
+        print('Curr Time:\n', self.curr_t)
+
+        # self.trajectory = Trajectory(Goto5(self.curr_t, self.curr_pos, joint_flip, self.flip_time, 'Joint'))
+        self.trajectory = Trajectory(QuinticSpline(self.curr_t, self.curr_pos, self.curr_vel, self.curr_accel,
+                            joint_flip, joint_flip_dot, self.curr_accel, self.flip_time, 'Joint'))
+                            
     
 
 ###############################################################################

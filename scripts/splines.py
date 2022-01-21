@@ -190,6 +190,8 @@ class SineX:
         self.A = amp                                # Amplitude
         self.w = freq                               # Frequency                 
         self.tau = math.asin(pos[0]/amp) - freq*t   # Phase Shift
+        #print('First Calc:\n', self.tau)
+        #self.tau = 
         self.y = pos[1]                             # Y-Pos (since constant)
         self.z = pos[2]                             # Z-Pos (since constant)
         # Also save the space
