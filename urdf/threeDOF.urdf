@@ -14,7 +14,7 @@
   <joint name="theta1" type="continuous">
     <parent link="world"/>
     <child  link="link1"/>
-    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <origin xyz="0 0 0.1" rpy="0 0 0"/>
     <axis   xyz="0 0 1"/>
   </joint>
 
@@ -32,7 +32,7 @@
   <joint name="theta3" type="continuous">
     <parent link="link2"/>
     <child  link="link3"/>
-    <origin xyz="0 1 0" rpy="0 0 0"/>
+    <origin xyz="0 0.25 0" rpy="0 0 0"/>
     <axis   xyz="1 0 0"/>
   </joint>
 
@@ -41,7 +41,7 @@
   <joint name="shifttotip" type="fixed">
     <parent link="link3"/>
     <child  link="tip"/>
-    <origin xyz="0 1 0" rpy="0 0 0"/>
+    <origin xyz="0 0.2 0" rpy="0 0 0"/>
   </joint>
 
   <link name="tip"/>
@@ -82,9 +82,9 @@
 
   <link name="table">
     <visual>
-      <origin xyz="0 0 -0.425" rpy="0 0 0"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-	<box size="1.0 1.0 0.05"/>
+	<box size="0.2 0.15 0.0127"/>
       </geometry>
       <material name="table"/>
     </visual>
@@ -99,9 +99,9 @@
 
   <link name="yawmotor">
     <visual>
-      <origin xyz="0 0 -0.35" rpy="0 0 0"/>
+      <origin xyz="0 0 0.01" rpy="0 0 0"/>
       <geometry>
-	<cylinder length="0.1" radius="0.2"/>
+	<cylinder length="0.02" radius="0.03"/>
       </geometry>
       <material name="gray"/>
     </visual>
@@ -116,9 +116,9 @@
 
   <link name="link1bar">
     <visual>
-      <origin xyz="0 0 -0.2" rpy="0 0 0"/>
+      <origin xyz="0 0 -0.05" rpy="0 0 0"/>
       <geometry>
-	<cylinder length="0.2" radius="0.02"/>
+	<cylinder length="0.1" radius="0.01"/>
       </geometry>
       <material name="black"/>
     </visual>
@@ -133,9 +133,9 @@
 
   <link name="link1sail">
     <visual>
-      <origin xyz="0 0.05 -0.25" rpy="0 0 0"/>
+      <origin xyz="0 0.02 -0.05" rpy="0 0 0"/>
       <geometry>
-      	<box size="0.04 0.1 0.1"/>
+      	<box size="0.01 0.02 0.05"/>
       </geometry>
       <material name="blue"/>
     </visual>
@@ -152,7 +152,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 1.5708 0"/>
       <geometry>
-	<cylinder length="0.4" radius="0.1"/>
+	<cylinder length="0.1" radius="0.02"/>
       </geometry>
       <material name="yellow"/>
     </visual>
@@ -167,9 +167,9 @@
 
   <link name="link2bar">
     <visual>
-      <origin xyz="0 0.5 0" rpy="-1.5708 0 0"/>
+      <origin xyz="0 0.125 0" rpy="-1.5708 0 0"/>
       <geometry>
-	<cylinder length="1.0" radius="0.02"/>
+	<cylinder length="0.25" radius="0.01"/>
       </geometry>
       <material name="black"/>
     </visual>
@@ -184,9 +184,9 @@
 
   <link name="link2sail">
     <visual>
-      <origin xyz="0 0.15 0.04" rpy="0 0 0"/>
+      <origin xyz="0 0.07 0.02" rpy="0 0 0"/>
       <geometry>
-      	<box size="0.04 0.3 0.08"/>
+      	<box size="0.01 0.1 0.02"/>
       </geometry>
       <material name="blue"/>
     </visual>
@@ -201,9 +201,9 @@
 
   <link name="pitch2motor">
     <visual>
-      <origin xyz="0 1 0" rpy="0 1.5708 0"/>
+      <origin xyz="0 0.25 0" rpy="0 1.5708 0"/>
       <geometry>
-	<cylinder length="0.3" radius="0.08"/>
+	<cylinder length="0.1" radius="0.02"/>
       </geometry>
       <material name="yellow"/>
     </visual>
@@ -218,9 +218,9 @@
 
   <link name="link3bar">
     <visual>
-      <origin xyz="0 0.5 0" rpy="-1.5708 0 0"/>
+      <origin xyz="0 0.1 0" rpy="-1.5708 0 0"/>
       <geometry>
-	<cylinder length="1.0" radius="0.02"/>
+	<cylinder length="0.2" radius="0.01"/>
       </geometry>
       <material name="black"/>
     </visual>
@@ -235,9 +235,9 @@
 
   <link name="link3sail">
     <visual>
-      <origin xyz="0 0.125 0.03" rpy="0 0 0"/>
+      <origin xyz="0 0.07 0.02" rpy="0 0 0"/>
       <geometry>
-      	<box size="0.03 0.25 0.06"/>
+      	<box size="0.01 0.1 0.02"/>
       </geometry>
       <material name="blue"/>
     </visual>
@@ -254,7 +254,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-      	<sphere radius="0.05"/>
+      	<sphere radius="0.02"/>
       </geometry>
       <material name="red"/>
     </visual>
