@@ -120,10 +120,6 @@ class Generator:
                 Trajectory(SineX(self.x_init, self.start_t, self.amplitude, self.frequency, math.inf))
                 self.flip = False
 
-                print('Curr Pos:\n', self.curr_pos)
-                print('Curr Vel:\n', self.curr_vel)
-                print('Curr Time:\n', self.curr_t)
-
         
         # Determine which trajectory and implement functionality
         if (self.trajectory.traj_space() == 'Joint'):
@@ -176,10 +172,6 @@ class Generator:
         qdot2 = -1*self.curr_vel[1]
         qdot3 = -1*self.curr_vel[2]
         joint_flip_dot = np.array([qdot1, qdot2, qdot3])
-
-        print('Curr Pos:\n', self.curr_pos)
-        print('Curr Vel:\n', self.curr_vel)
-        print('Curr Time:\n', self.curr_t)
 
         # self.trajectory = Trajectory(Goto5(self.curr_t, self.curr_pos, joint_flip, self.flip_time, 'Joint'))
         self.trajectory = Trajectory(QuinticSpline(self.curr_t, self.curr_pos, self.curr_vel, self.curr_accel,
