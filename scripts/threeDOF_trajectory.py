@@ -42,55 +42,90 @@ class Trajectory:
 class Generator:
     # Initialize.
     def __init__(self):
+        # Collect the motor names, which defines the dofs (useful to know)
+        self.motors = ['theta1', 'theta2', 'theta3']
+        self.dofs = len(self.motors)
+        
         # Create a publisher to send the joint commands.  Add some time
         # for the subscriber to connect.  This isn't necessary, but means
         # we don't start sending messages until someone is listening.
-        self.pub = rospy.Publisher("/joint_states", JointState)
+
+        # For RVIZ
+        self.pub = rospy.Publisher("/joint_states", JointState, queue_size=5)
+        # For HEBI Motors
+        # self.pub = rospy.Publisher("/hebi/joint_commands", JointState, queue_size=5)
         rospy.sleep(0.25)
         
+        # IMPLEMENT FINDING THE STARTING POSITIONS LATER AND THEN MOVE TO ZERO STARTING OUT
+
         # Create subscribers for the general case and events.
+<<<<<<< HEAD
         self.sub = rospy.Subscriber('/switch', String, self.callback)
+=======
+        self.sub = rospy.Subscriber('/actual', JointState, self.callback_actual)
+        self.sub_e = rospy.Subscriber('/event', String, self.callback_event)
+>>>>>>> Shri
         
         # Grab the robot's URDF from the parameter server.
         robot = Robot.from_parameter_server()
 
         # Instantiate the Kinematics
-        self.kin = kin.Kinematics(robot, 'world', 'tip')  
+        self.kin = kin.Kinematics(robot, 'world', 'tip')
 
         # Initialize the relevant joint and position parameters
         self.x_init = np.array([0.0, 1.25, 0.01]).reshape((3,1))
         q_guess = np.array([0.0, 0.5, -1.0]).reshape((3,1))
+        
+        # Actually want to use the actual values in the future.
         self.q_init = self.kin.ikin(self.x_init, q_guess)
         self.q_prev = self.q_init
         
         # Define the explicit value of the sinusoidal function
-        self.amplitude = 0.25
-        self.frequency = 1.0
+        self.amplitude = 0.50
+        self.frequency = 0.75
         
         # Indicate without an explicit event how long to hold in initial state
-        self.hold   = True                                            
-        self.holdTime = 1.0
+        self.hold   = True
+        self.hold_time = 2.0
+        
+        # Indicate without an explicit event how long to perform the joint flip
+        self.flip = False
+        self.flip_time = self.frequency*10
+        self.flip_moment = 0.0
+        
+        # Initialize the state of the robot
+        self.curr_pos = self.q_init
+        self.curr_vel = np.array([0.0, 0.0, 0.0]).reshape((3,1))
+        self.curr_t = 0.0
         
         # Initialize with holding trajectory
-        self.trajectory = Trajectory(Hold(self.q_init, 1.0, 'Joint'))
+        self.trajectory = Trajectory(Hold(self.curr_t, self.curr_pos, self.hold_time, 'Joint'))
 
 
     # Update every 10ms!
     def update(self, t):
         # Create an empty joint state message.
         cmdmsg = JointState()
-        cmdmsg.name = ['theta1', 'theta2', 'theta3']
+        cmdmsg.name = self.motors
             
         # Change from holding to the sinusoidal trajectory
         if (self.hold):
-            if (t >= self.holdTime):
+            if (t >= self.hold_time):
                 self.trajectory = \
                 Trajectory(SineX(self.x_init, t, self.amplitude, self.frequency, math.inf))
                 self.hold = False
+                
+        # Change from flipping to the sinusoidal trajectory
+        if (self.flip):
+            if (t >= self.flip_moment + self.flip_time):
+                self.trajectory = \
+                Trajectory(SineX(self.x_init, t, self.amplitude, self.frequency, math.inf))
+                self.flip = False
         
         # Determine which trajectory and implement functionality
         if (self.trajectory.traj_space() == 'Joint'):
             (cmdmsg.position, cmdmsg.velocity) = self.trajectory.update(t)
+            self.q_prev = cmdmsg.position
               
         elif (self.trajectory.traj_space() == 'Task'):
             (x, xdot) = self.trajectory.update(t)
@@ -108,32 +143,44 @@ class Generator:
         cmdmsg.header.stamp = rospy.Time.now()
         self.pub.publish(cmdmsg)
         
+        # Store the command message
+        self.curr_pos = cmdmsg.position
+        self.curr_vel = cmdmsg.velocity
+        self.curr_t = t
+        
     
+<<<<<<< HEAD
     # Callback Function
     def callback(self, msg):
         if (msg == 'Switch'):
             #Run spline switch function
+=======
+    # Callback Function 
+    def callback_actual(self, msg):
+        # Future Function to Implement to account for Gravity Compensation
+        # Also should read the initial joint pos of the motors to initialize the trajectory
+        rospy.loginfo('I heard %s', msg)
+       
+>>>>>>> Shri
        
     # Callback Function for the Event    
     def callback_event(self, msg):
-        # How do I code the rospy listener?
-        # Also where exactly do we call this function?
+        rospy.loginfo('Hello! I heard %s', msg.data)
         
-        # Extract relevant state parameters from the msg
-        position = msg[0]
-        velocity = msg[1]
+        # Update values for the update function
+        self.flip = True
+        self.flip_moment = self.curr_t
         
-        intermediate_position = np.array([0.0, 0.0, 0.0]) #TODO
-        intermediate_velocity = np.array([0.0, 0.0, 0.0]) #TODO
+        # Joint angle corresponding to elbow-down, flipped multiplicity
+        q1 = math.pi + self.q_init[0]               
+        q2 = math.pi - self.q_init[1]               
+        q3 = -1 * self.q_init[2]                    
+
+        joint_flip = np.array([q1, q2, q3])
         
-        
-        # Change the trajectory to a joint spline given the current state
-        self.trajectory = Trajectory(Goto(position, intermediate_position, 5.0, 'Joint'),
-                                     Goto(intermediate_position, intermediate_position, 5.0, 'Joint'))
-        # NEED TO ADJUST THE CODE FOR THE TRAJECTORY CLASS TO HANDLE MULTIPLE SPLINES INSIDE IT
-        # ALSO NEED TO DETERMINE HOW TO ENSURE IT PASSES MULTIPLICITY AND DOESN'T JUST COME BACK... probably Quintic spline
+        self.trajectory = Trajectory(Goto5(self.curr_t, self.curr_pos, joint_flip, self.flip_time, 'Joint'))
     
-        
+
 ###############################################################################
 #
 #  Main Code
