@@ -59,12 +59,8 @@ class Generator:
         # IMPLEMENT FINDING THE STARTING POSITIONS LATER AND THEN MOVE TO ZERO STARTING OUT
 
         # Create subscribers for the general case and events.
-<<<<<<< HEAD
-        self.sub = rospy.Subscriber('/switch', String, self.callback)
-=======
         self.sub = rospy.Subscriber('/actual', JointState, self.callback_actual)
         self.sub_e = rospy.Subscriber('/event', String, self.callback_event)
->>>>>>> Shri
         
         # Grab the robot's URDF from the parameter server.
         robot = Robot.from_parameter_server()
@@ -73,15 +69,18 @@ class Generator:
         self.kin = kin.Kinematics(robot, 'world', 'tip')
 
         # Initialize the relevant joint and position parameters
-        self.x_init = np.array([0.0, 1.25, 0.01]).reshape((3,1))
+        self.x_init = np.array([0.0, 0.35, 0.10]).reshape((3,1))
         q_guess = np.array([0.0, 0.5, -1.0]).reshape((3,1))
         
         # Actually want to use the actual values in the future.
+        # Initialize the state of the robot
         self.q_init = self.kin.ikin(self.x_init, q_guess)
-        self.q_prev = self.q_init
+        self.curr_pos = self.q_init
+        self.curr_vel = np.array([0.0, 0.0, 0.0]).reshape((3,1))
+        self.curr_t = 0.0
         
         # Define the explicit value of the sinusoidal function
-        self.amplitude = 0.50
+        self.amplitude = 0.15
         self.frequency = 0.75
         
         # Indicate without an explicit event how long to hold in initial state
@@ -92,11 +91,6 @@ class Generator:
         self.flip = False
         self.flip_time = self.frequency*10
         self.flip_moment = 0.0
-        
-        # Initialize the state of the robot
-        self.curr_pos = self.q_init
-        self.curr_vel = np.array([0.0, 0.0, 0.0]).reshape((3,1))
-        self.curr_t = 0.0
         
         # Initialize with holding trajectory
         self.trajectory = Trajectory(Hold(self.curr_t, self.curr_pos, self.hold_time, 'Joint'))
@@ -125,17 +119,17 @@ class Generator:
         # Determine which trajectory and implement functionality
         if (self.trajectory.traj_space() == 'Joint'):
             (cmdmsg.position, cmdmsg.velocity) = self.trajectory.update(t)
-            self.q_prev = cmdmsg.position
+            self.curr_pos = cmdmsg.position
               
         elif (self.trajectory.traj_space() == 'Task'):
             (x, xdot) = self.trajectory.update(t)
             cart_pos = np.array(x).reshape((3,1))
             cart_vel = np.array(xdot).reshape((3,1))
             
-            cmdmsg.position = self.kin.ikin(cart_pos, self.q_prev)
+            cmdmsg.position = self.kin.ikin(cart_pos, self.curr_pos)
             (T, J) = self.kin.fkin(cmdmsg.position)
             cmdmsg.velocity = np.linalg.inv(J[0:3,0:3]) @ cart_vel
-            self.q_prev = cmdmsg.position
+            self.curr_pos = cmdmsg.position
         else:
             raise ValueError('Unknown Spline Type')
 
@@ -149,19 +143,12 @@ class Generator:
         self.curr_t = t
         
     
-<<<<<<< HEAD
-    # Callback Function
-    def callback(self, msg):
-        if (msg == 'Switch'):
-            #Run spline switch function
-=======
     # Callback Function 
     def callback_actual(self, msg):
         # Future Function to Implement to account for Gravity Compensation
         # Also should read the initial joint pos of the motors to initialize the trajectory
         rospy.loginfo('I heard %s', msg)
        
->>>>>>> Shri
        
     # Callback Function for the Event    
     def callback_event(self, msg):
