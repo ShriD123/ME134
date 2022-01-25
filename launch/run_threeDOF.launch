@@ -11,10 +11,10 @@
 
 
   <!-- Instead of a GUI, we use program a trajectory generator. -->
-  <!-- <node pkg ="ME134"
+  <node pkg ="ME134"
 	type="threeDOF_trajectory.py"
 	name="gen">
-  </node> -->
+  </node>
 
 
   <!-- Start the ROS kinematic chain processing. -->
