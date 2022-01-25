@@ -11,7 +11,6 @@ from splines import CubicSpline, Goto, Hold, Stay, QuinticSpline, Goto5, SineX
 from kinematics import p_from_T, q_from_T, R_from_T, T_from_Rp, Rx, Ry, Rz
 from sensor_msgs.msg   import JointState
 from std_msgs.msg import String
-from geometry_msgs.msg import Point
 from urdf_parser_py.urdf import Robot
 
 
@@ -54,6 +53,7 @@ class Generator:
         # self.pub = rospy.Publisher("/hebi/joint_commands", JointState, queue_size=5)
         rospy.sleep(0.25)
         
+        # IMPLEMENT FINDING THE STARTING POSITIONS LATER AND THEN MOVE TO ZERO STARTING OUT
 
         # Create subscribers for the general case and events.
         self.sub = rospy.Subscriber('/actual', JointState, self.callback_actual)
@@ -65,23 +65,16 @@ class Generator:
         # Instantiate the Kinematics
         self.kin = kin.Kinematics(robot, 'world', 'tip')
 
-        # Initialize robot at random starting point w/tip and 2nd joint above z=0
-        self.z = -1
-        while self.z < 0:
-            j13 = 2*np.pi*np.random.rand(2)
-            self.q_init = np.insert(j13,1,1.159*np.random.rand())
-            (T,J) = self.kin.fkin(self.q_init)
-            self.x_init = p_from_T(T)
-            self.z = self.x_init[2]
-
-        # Starting location of sinusoidal trajectory
-        self.start_loc = np.array([0.0, 0.35, 0.10]).reshape((3,1))
-        self.q_guess = np.array([0.0, 0.5, -1.0]).reshape((3,1))
+        # Initialize the relevant joint and position parameters
+        self.x_init = np.array([0.0, 0.35, 0.10]).reshape((3,1))
+        q_guess = np.array([0.0, 0.5, -1.0]).reshape((3,1))
         
-        # Starting joint angles of sinusoidal trajectory
-        self.start_q = self.kin.ikin(self.start_loc, self.q_guess)
+        # Actually want to use the actual values in the future.
+        # Initialize the state of the robot
+        self.q_init = self.kin.ikin(self.x_init, q_guess)
+        # (T_i, J_i) = self.kin.fkin(self.q_init)
+        # self.x_init_act = p_from_T(T_i)
 
-        # Initial position, velocity, accel, and time 
         self.curr_pos = self.q_init
         self.curr_vel = np.array([0.0, 0.0, 0.0]).reshape((3,1))
         self.curr_t = 0.0
@@ -94,15 +87,13 @@ class Generator:
         
         # Indicate without an explicit event how long to hold in initial state
         self.hold   = True
-        self.hold_time = 5
-
-        # Indicate to not start sine wave until tip is in position
-        self.sin = False
+        self.hold_time = 2.0
         
         # Indicate without an explicit event how long to perform the joint flip
         self.flip = False
         self.flip_time = 2 * math.pi / self.frequency
         self.flip_moment = 0.0
+        self.flip_count = 0
         
         # Initialize with holding trajectory
         # For future, we will want to implement this as a stack of trajectories
@@ -114,40 +105,26 @@ class Generator:
         # Create an empty joint state message.
         cmdmsg = JointState()
         cmdmsg.name = self.motors
-        
-        # Change from holding to trajectory going to sinusoidal trajectory start point
+            
+        # Change from holding to the sinusoidal trajectory
         if (self.hold):
             if (t >= self.hold_time):
                 self.start_t = t
-                self.trajectory = Trajectory(QuinticSpline(self.start_t, self.curr_pos.reshape((3,1)),np.array([0, 0, 0]).reshape((3,1)),\
-                 np.array([0, 0, 0]).reshape((3,1)), self.start_q.reshape((3,1)),np.array([0.0, 0.0, 0.0]).reshape((3,1)),\
-                 np.array([0.0, 0.0, 0.0]).reshape((3,1)), 10, 'Joint'))
-                self.hold = False
-                # Allow sinusoidal trajectory to begin
-                self.sin = True
-
-        # Change from holding to the sinusoidal trajectory
-        if (self.sin):
-            # Allow sinusoidal trajectory to start when tip is close enough to desired location
-            if (np.absolute(np.linalg.norm(self.start_q) - np.linalg.norm(self.curr_pos)) < 0.001):
-                self.start_t = t
                 self.trajectory = \
-                Trajectory(SineX(self.start_loc, self.start_t, self.amplitude, self.frequency, math.inf))
-                self.sin = False
+                Trajectory(SineX(self.x_init, self.start_t, self.amplitude, self.frequency, math.inf))
+                self.hold = False
                 
         # Change from flipping to the sinusoidal trajectory
         if (self.flip):
             if (t >= self.flip_moment + self.flip_time):
                 self.trajectory = \
-                Trajectory(SineX(self.start_loc, self.start_t, self.amplitude, self.frequency, math.inf))
+                Trajectory(SineX(self.x_init, self.start_t, self.amplitude, self.frequency, math.inf))
                 self.flip = False
 
         
         # Determine which trajectory and implement functionality
         if (self.trajectory.traj_space() == 'Joint'):
-            (a, b) = self.trajectory.update(t)
-            cmdmsg.position = np.array([a[0],a[1],a[2]])
-            cmdmsg.velocity = np.array([b[0],b[1],b[2]])
+            (cmdmsg.position, cmdmsg.velocity) = self.trajectory.update(t)
               
         elif (self.trajectory.traj_space() == 'Task'):
             (x, xdot) = self.trajectory.update(t)
@@ -171,7 +148,7 @@ class Generator:
         
     
     # Callback Function 
-    def callback_actual(self, msg ):
+    def callback_actual(self, msg):
         # Future Function to Implement to account for Gravity Compensation
         # Also should read the initial joint pos of the motors to initialize the trajectory
         rospy.loginfo('I heard %s', msg)
@@ -184,18 +161,26 @@ class Generator:
         # Update values for the update function
         self.flip = True
         self.flip_moment = self.curr_t
+        self.flip_count += 1
         
         # Joint angle corresponding to elbow-down, flipped multiplicity
-        q1 = math.pi + self.curr_pos[0]               
-        q2 = math.pi - self.curr_pos[1]               
-        q3 = -1 * self.curr_pos[2]                    
-        joint_flip = np.array([q1, q2, q3])
+        if (self.flip_count % 2 == 1):  # Odd number of flips, go counterclockwise
+            q1 = math.pi + self.curr_pos[0]               
+            q2 = math.pi - self.curr_pos[1]               
+            q3 = -1 * self.curr_pos[2]              
+        else:                           # Even number of flips, go clockwise
+            q1 = self.curr_pos[0] - math.pi
+            q2 = math.pi - self.curr_pos[1]
+            q3 = -1 * self.curr_pos[2]
+
+        joint_flip = np.array([q1, q2, q3]).reshape((3,1))
 
         # Joint velocities corresponding to elbow down, flipped multiplicity
         qdot1 = self.curr_vel[0]
         qdot2 = -1*self.curr_vel[1]
         qdot3 = -1*self.curr_vel[2]
-        joint_flip_dot = np.array([qdot1, qdot2, qdot3])
+
+        joint_flip_dot = np.array([qdot1, qdot2, qdot3]).reshape((3,1))
 
         # self.trajectory = Trajectory(Goto5(self.curr_t, self.curr_pos, joint_flip, self.flip_time, 'Joint'))
         self.trajectory = Trajectory(QuinticSpline(self.curr_t, self.curr_pos, self.curr_vel, self.curr_accel,
