@@ -121,7 +121,7 @@ class Generator:
                 self.start_t = t
                 self.trajectory = Trajectory(QuinticSpline(self.start_t, self.curr_pos.reshape((3,1)),np.array([0, 0, 0]).reshape((3,1)),\
                  np.array([0, 0, 0]).reshape((3,1)), self.start_q.reshape((3,1)),np.array([0.0, 0.0, 0.0]).reshape((3,1)),\
-                 np.array([0.0, 0.0, 0.0]).reshape((3,1)), 10, 'Joint'))
+                 np.array([0.0, 0.0, 0.0]).reshape((3,1)), self.flip_time, 'Joint'))
                 self.hold = False
                 # Allow sinusoidal trajectory to begin
                 self.sin = True
@@ -129,7 +129,7 @@ class Generator:
         # Change from holding to the sinusoidal trajectory
         if (self.sin):
             # Allow sinusoidal trajectory to start when tip is close enough to desired location
-            if (np.absolute(np.linalg.norm(self.start_q) - np.linalg.norm(self.curr_pos)) < 0.001):
+            if ((np.absolute(self.start_q[0] - self.curr_pos[0]) < 0.01) and (np.absolute(self.start_q[1] - self.curr_pos[1]) < 0.001) and (np.absolute(self.start_q[2] - self.curr_pos[2]) < 0.001)):
                 self.start_t = t
                 self.trajectory = \
                 Trajectory(SineX(self.start_loc, self.start_t, self.amplitude, self.frequency, math.inf))
@@ -164,6 +164,8 @@ class Generator:
         self.curr_pos = cmdmsg.position
         self.curr_vel = cmdmsg.velocity
         self.curr_t = t
+
+        rospy.logerr(self.curr_pos)
 
         # Send the command (with the current time).
         cmdmsg.header.stamp = rospy.Time.now()
