@@ -7,9 +7,21 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   geometry_msgs
-  sensor_msgs)
+  sensor_msgs
+  message_generation
+  std_msgs)
 
 find_package(Eigen3 REQUIRED)
+
+add_message_files(
+  FILES
+  array.msg
+  )
+  
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+  )
 
 ## Catkin configuration.  We don't have dependent projects.
 catkin_package()
