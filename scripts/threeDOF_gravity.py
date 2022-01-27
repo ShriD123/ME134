@@ -6,12 +6,14 @@ import rospy
 import math
 import kinematics as kin
 import numpy as np
+import std_msgs
 
 from splines import CubicSpline, Goto, Hold, Stay, QuinticSpline, Goto5
 from kinematics import p_from_T, q_from_T, R_from_T, T_from_Rp, Rx, Ry, Rz
 from sensor_msgs.msg   import JointState
 from std_msgs.msg import String
 from urdf_parser_py.urdf import Robot
+from ME134.msg import array
 
 
 ###############################################################################
@@ -22,18 +24,21 @@ class Generator:
     # Initialize.
     def __init__(self):
         # Collect the motor names, which defines the dofs (useful to know)
-        self.motors = ['theta1', 'theta2', 'theta3']
+        self.motors = ['Red/1', 'Red/2', 'Red/3']
         self.dofs = len(self.motors)
         
         # Create a publisher to send the joint commands.  Add some time
         # for the subscriber to connect.  This isn't necessary, but means
         # we don't start sending messages until someone is listening.
-        self.pub = rospy.Publisher("/joint_states", JointState, queue_size=5)
+        self.pub = rospy.Publisher('/hebi/joint_commands', JointState, queue_size=5)
         rospy.sleep(0.25)
 
         # Create subscribers for the general case and events.
-        self.sub = rospy.Subscriber('/hebi/joint_commands', JointState, self.callback_actual, queue_size=1)
-        self.sub_tune = rospy.Subscriber('/tune', String, self.callback_tune)
+        self.sub = rospy.Subscriber('/hebi/joint_states', JointState, self.callback_actual, queue_size=5)
+        self.sub_tune = rospy.Subscriber('/tune', String, self.callback_tune, queue_size=5)
+        # self.sub_num = rospy.Subscriber('/number', std_msgs.msg.Float32, self.callback_number, queue_size=5)
+        self.sub_num = rospy.Subscriber('/number', array, self.callback_number, queue_size=5)
+        
         
         # Grab the robot's URDF from the parameter server.
         robot = Robot.from_parameter_server()
@@ -42,10 +47,16 @@ class Generator:
         self.kin = kin.Kinematics(robot, 'world', 'tip')
 
         # Initialize the joints using actual positions of the motors.
-        msg = rospy.wait_for_message('hebi/joint_commands', JointState);
-        self.callback_actual(msg)
+        msg = rospy.wait_for_message('hebi/joint_states', JointState);
+        for i in range(self.dofs):
+            if (msg.name[i] != self.motors[i]):
+                raise ValueError("Motor names don't match")
 
-        self.q_init = msg.position              # To start the trajectories
+        self.q_init = np.array(msg.position).reshape((3, 1))
+        for i in range(self.dofs):
+            rospy.loginfo("Starting motor[%d] '%s' at pos: %f rad",
+                          i, self.motors[i], self.q_init[i])
+        self.callback_actual(msg)
 
         self.curr_pos = self.q_init
         self.curr_vel = np.array([0.0, 0.0, 0.0]).reshape((3,1))
@@ -55,6 +66,12 @@ class Generator:
         # Decide what you want to do
         self.float = True               # Testing the floating ability of the arm
         self.tune = False               # Tune the robot by hand
+        
+        # Gravity Constants
+        self.A = -0.07
+        self.B = 0.04
+        self.C = -0.04
+        self.D = 1.15
 
 
     # Update every 10ms!
@@ -69,6 +86,10 @@ class Generator:
             cmdmsg.position = np.array([nan, nan, nan]).reshape((3,1))
             cmdmsg.velocity = np.array([nan, nan, nan]).reshape((3,1))
             cmdmsg.effort = self.gravity(self.curr_pos)
+        
+        if self.tune:
+            # TODO: Implement this a lil later
+            pass
 
         # Store the command message
         self.curr_pos = cmdmsg.position
@@ -90,7 +111,19 @@ class Generator:
     # Callback Function for the
     def callback_tune(self, msg):
         # TODO Add this, potentially for tuning the parameters
-        pass
+        # To call this, do rostopic pub -1 /tune ME134/array [a,b,c,d] (no spaces)
+        rospy.loginfo('I heard %s', msg)
+        data = msg.data
+        if len(data) != 4:
+            raise ValueError("Gravity Params don't match")
+        self.A = data[0]
+        self.B = data[1]
+        self.C = data[2]
+        self.D = data[3]
+        
+    # Callback Function for tuning the gravity parameters
+    def callback_number(self, msg):
+        self.A = msg.data[0]
 
 
     # Gravity Compensation Function
@@ -98,7 +131,7 @@ class Generator:
         theta_1 = pos[1]; theta_2 = pos[2]
         tau2 = self.A * math.sin(theta_1 + theta_2) + self.B * math.cos(theta_1 + theta_2)
         tau1 = self.C * math.sin(theta_1) + self.D * math.cos(theta_1) + tau2
-        return (0, tau1, tau2) 
+        return np.array([0, tau1, -1*tau2]).reshape((3,1)) 
 
 
 ###############################################################################
@@ -107,7 +140,7 @@ class Generator:
 #
 if __name__ == "__main__":
     # Prepare/initialize this node.
-    rospy.init_node('generator')
+    rospy.init_node('demo')
 
     # Instantiate the trajectory generator object, encapsulating all
     # the computation and local variables.
