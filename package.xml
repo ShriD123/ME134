@@ -15,6 +15,7 @@
   <depend>rospy</depend>
   <depend>geometry_msgs</depend>
   <depend>sensor_msgs</depend>
+  <build_depend>messege_generation</build_depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>
