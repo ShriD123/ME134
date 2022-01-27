@@ -43,17 +43,32 @@ class Generator:
     # Initialize.
     def __init__(self):
         # Collect the motor names, which defines the dofs (useful to know)
-        self.motors = ['theta1', 'theta2', 'theta3']
+        #self.motors = ['theta1', 'theta2', 'theta3']
+        # Names of the motors
+        self.motors = ['Red/1', 'Red/2', 'Red/3']
         self.dofs = len(self.motors)
         
         # Create a publisher to send the joint commands.  Add some time
         # for the subscriber to connect.  This isn't necessary, but means
         # we don't start sending messages until someone is listening.
-        self.pub = rospy.Publisher("/joint_states", JointState, queue_size=5)
-        # self.pub = rospy.Publisher("/hebi/joint_commands", JointState, queue_size=5)
+        # self.pub = rospy.Publisher("/joint_states", JointState, queue_size=5)
+        self.pub = rospy.Publisher("/hebi/joint_commands", JointState, queue_size=5)
         rospy.sleep(0.25)
         
         # IMPLEMENT FINDING THE STARTING POSITIONS LATER AND THEN MOVE TO ZERO STARTING OUT
+        
+        # Find the starting positions.  This will block, but that's
+        # appropriate as we don't want to start until we have this
+        # information.
+        msg = rospy.wait_for_message('/hebi/joint_states', JointState);
+        for i in range(self.dofs):
+            if (msg.name[i] != self.motors[i]):
+                raise ValueError("Motor names don't match")
+
+        self.initpos = np.array(msg.position).reshape((3, 1))
+        for i in range(self.dofs):
+            rospy.loginfo("Starting motor[%d] '%s' at pos: %f rad",
+                          i, self.motors[i], self.initpos[i])
 
         # Create subscribers for the general case and events.
         self.sub = rospy.Subscriber('/actual', JointState, self.callback_actual)
@@ -67,7 +82,7 @@ class Generator:
 
         # Initialize the relevant joint and position parameters
         self.x_init = np.array([0.0, 0.35, 0.10]).reshape((3,1))
-        q_guess = np.array([0.0, 0.5, -1.0]).reshape((3,1))
+        q_guess = np.array([0.0, 0.5, 1.0]).reshape((3,1))
         
         # Actually want to use the actual values in the future.
         # Initialize the state of the robot
@@ -87,7 +102,7 @@ class Generator:
         
         # Indicate without an explicit event how long to hold in initial state
         self.hold   = True
-        self.hold_time = 2.0
+        self.hold_time = 4.0
         
         # Indicate without an explicit event how long to perform the joint flip
         self.flip = False
@@ -97,7 +112,9 @@ class Generator:
         
         # Initialize with holding trajectory
         # For future, we will want to implement this as a stack of trajectories
-        self.trajectory = Trajectory(Hold(self.curr_t, self.curr_pos, self.hold_time, 'Joint'))
+        #self.trajectory = Trajectory(Hold(self.curr_t, self.curr_pos, self.hold_time, 'Joint'))
+        # Trajectory from the position of the arm received to q_init
+        self.trajectory = Trajectory(QuinticSpline(self.curr_t, self.initpos, self.curr_vel, self.curr_accel, self.curr_pos, self.curr_vel, self.curr_accel, self.hold_time, 'Joint'))
 
 
     # Update every 10ms!
@@ -136,6 +153,9 @@ class Generator:
             cmdmsg.velocity = np.linalg.inv(J[0:3,0:3]) @ cart_vel
         else:
             raise ValueError('Unknown Spline Type')
+            
+        # No gravity compensation yet so 0 effort for now
+        cmdmsg.effort = [0.0, 0.0, 0.0]
 
         # Store the command message
         self.curr_pos = cmdmsg.position
@@ -194,7 +214,7 @@ class Generator:
 #
 if __name__ == "__main__":
     # Prepare/initialize this node.
-    rospy.init_node('generator')
+    rospy.init_node('demo')
 
     # Instantiate the trajectory generator object, encapsulating all
     # the computation and local variables.
