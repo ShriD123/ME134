@@ -138,6 +138,7 @@ class Generator:
         # Change from flipping to the sinusoidal trajectory
         if (self.flip):
             if (t >= self.flip_moment + self.flip_time):
+                rospy.logerr(self.curr_pos)
                 self.trajectory = \
                 Trajectory(SineX(self.start_loc, self.start_t, self.amplitude, self.frequency, math.inf))
                 self.flip = False
@@ -165,8 +166,6 @@ class Generator:
         self.curr_vel = cmdmsg.velocity
         self.curr_t = t
 
-        rospy.logerr(self.curr_pos)
-
         # Send the command (with the current time).
         cmdmsg.header.stamp = rospy.Time.now()
         self.pub.publish(cmdmsg)
@@ -182,7 +181,7 @@ class Generator:
     # Callback Function for the Event    
     def callback_event(self, msg):
         rospy.loginfo('Hello! I heard %s', msg.data)
-        
+        rospy.logerr(self.curr_pos)
         # Update values for the update function
         self.flip = True
         self.flip_moment = self.curr_t
