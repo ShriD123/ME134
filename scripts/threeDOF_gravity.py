@@ -65,7 +65,7 @@ class Generator:
         # Decide what you want to do
         self.float = False               # Testing the floating ability of the arm
         self.tune = True               # Tune the robot by hand
-        self.tune_motor = 1             # Choose which motor to tune --> 1, 2, or 3
+        self.tune_motor = 3             # Choose which motor to tune --> 1, 2, or 3
         
         # Gravity Constants
         self.A = -0.07
@@ -93,8 +93,14 @@ class Generator:
             if (t % (2*tstep) < tstep):
                 cmdmsg.position = np.array([0.0, 0.0, 0.0])
             else:
-                new_pos = np.array([0.0, 0.0, 0.0])
-                new_pos[self.tune_motor-1] = 0.2
+                # new_pos = np.array([0.0, 0.0, 0.0])
+                new_pos = np.array([0.2, 0.2, -0.2])
+                '''
+                if (self.tune_motor == 3):
+                    new_pos[self.tune_motor-1] = -0.2
+                else:
+                    new_pos[self.tune_motor-1] = 0.2
+                '''
                 cmdmsg.position = new_pos
             cmdmsg.velocity = np.array([0.0, 0.0, 0.0])
             cmdmsg.effort = np.array([0.0, 0.0, 0.0])
