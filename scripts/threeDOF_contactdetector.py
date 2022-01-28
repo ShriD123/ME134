@@ -90,15 +90,20 @@ class Generator:
         self.curr_vel = np.array([0.0, 0.0, 0.0]).reshape((3,1))
         self.curr_t = 0.0
         self.curr_accel = np.array([0.0, 0.0, 0.0]).reshape((3,1))
+        self.curr_eff = np.array([0.0, 0.0, 0.0]).reshape((3,1))
         
         # Define values for the actual motor positions
         self.act_pos = np.array([0.0, 0.0, 0.0]).reshape((3,1))
         self.act_vel = np.array([0.0, 0.0, 0.0]).reshape((3,1))
+        self.act_eff = np.array([0.0, 0.0, 0.0]).reshape((3,1))
         
         # Define the explicit value of the sinusoidal function
         self.amplitude = 0.15
         self.frequency = 1.0
         self.start_t = 0.0
+        
+        # Variable determining if contact has been made
+        self.contact = 0
         
         # Indicate without an explicit event how long to hold in initial state
         self.hold   = True
@@ -138,6 +143,7 @@ class Generator:
         # Change from flipping to the sinusoidal trajectory
         if (self.flip):
             if (t >= self.flip_moment + self.flip_time):
+                rospy.logerr('back to sine')
                 self.trajectory = \
                 Trajectory(SineX(self.x_init, self.start_t, self.amplitude, self.frequency, math.inf))
                 self.flip = False
@@ -163,6 +169,7 @@ class Generator:
         # Store the command message
         self.curr_pos = cmdmsg.position
         self.curr_vel = cmdmsg.velocity
+        self.curr_eff = cmdmsg.effort
         self.curr_t = t
        
 
@@ -180,16 +187,28 @@ class Generator:
                 raise ValueError("Motor names don't match")
         self.act_pos = np.array(msg.position).reshape((3,1))
         self.act_vel = np.array(msg.velocity).reshape((3,1))
+        self.act_eff = np.array(msg.effort).reshape((3,1))
         #rospy.loginfo('I heard %s', msg)
-        posthreshold = 0.06
-        if np.any(np.abs(self.act_pos - self.curr_pos) > posthreshold):
-            self.contactdetected()
+        posthreshold = 0.1
+        velthreshold = 0.6
+        effthreshold = 1.5
+        if (self.curr_t - self.contact > self.flip_time + 0.5):
+            if np.any(np.abs(self.act_pos - self.curr_pos) > posthreshold)\
+             or np.any(np.abs(self.act_vel - self.curr_vel) > velthreshold)\
+              or np.any(np.abs(self.act_eff - self.curr_eff) > effthreshold):
+                self.contactdetected()
        
         # Contact Detector
     def contactdetected(self):
         #TODO
+        self.contact = self.curr_t
+        self.flip = True
+        self.flip_moment = self.curr_t
         rospy.logerr('contact detected')
-        rospy.logerr(np.abs(self.act_pos - self.curr_pos))
+        #rospy.logerr(np.abs(self.act_pos - self.curr_pos))
+        #rospy.logerr(np.abs(self.act_vel - self.curr_vel))
+        #rospy.logerr(np.abs(self.act_eff - self.curr_eff))
+        self.trajectory = Trajectory(Hold(self.curr_t,self.curr_pos,self.flip_time))
        
     # Callback Function for the Event    
     def callback_event(self, msg):
