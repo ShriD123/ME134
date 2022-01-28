@@ -35,7 +35,6 @@ class Generator:
 
         # Create subscribers for the general case and events.
         self.sub = rospy.Subscriber('/hebi/joint_states', JointState, self.callback_actual, queue_size=5)
-        self.sub_tune = rospy.Subscriber('/tune', String, self.callback_tune, queue_size=5)
         # self.sub_num = rospy.Subscriber('/number', std_msgs.msg.Float32, self.callback_number, queue_size=5)
         self.sub_num = rospy.Subscriber('/number', array, self.callback_number, queue_size=5)
         
@@ -64,8 +63,9 @@ class Generator:
         self.curr_accel = np.array([0.0, 0.0, 0.0]).reshape((3,1))
         
         # Decide what you want to do
-        self.float = True               # Testing the floating ability of the arm
-        self.tune = False               # Tune the robot by hand
+        self.float = False               # Testing the floating ability of the arm
+        self.tune = True               # Tune the robot by hand
+        self.tune_motor = 3             # Choose which motor to tune --> 1, 2, or 3
         
         # Gravity Constants
         self.A = -0.07
@@ -88,9 +88,24 @@ class Generator:
             cmdmsg.effort = self.gravity(self.curr_pos)
         
         if self.tune:
-            # TODO: Implement this a lil later
-            pass
-
+            # Repeatedly alternate the positions.
+            tstep = 2.0
+            if (t % (2*tstep) < tstep):
+                cmdmsg.position = np.array([0.0, 0.0, 0.0])
+            else:
+                # new_pos = np.array([0.0, 0.0, 0.0])
+                new_pos = np.array([0.2, 0.2, -0.2])
+                '''
+                if (self.tune_motor == 3):
+                    new_pos[self.tune_motor-1] = -0.2
+                else:
+                    new_pos[self.tune_motor-1] = 0.2
+                '''
+                cmdmsg.position = new_pos
+            cmdmsg.velocity = np.array([0.0, 0.0, 0.0])
+            cmdmsg.effort = np.array([0.0, 0.0, 0.0])
+            
+            
         # Store the command message
         self.curr_pos = cmdmsg.position
         self.curr_vel = cmdmsg.velocity
@@ -106,24 +121,18 @@ class Generator:
     def callback_actual(self, msg):
         self.curr_pos = msg.position
         self.curr_vel = msg.velocity
-       
-       
-    # Callback Function for the
-    def callback_tune(self, msg):
-        # TODO Add this, potentially for tuning the parameters
-        # To call this, do rostopic pub -1 /tune ME134/array [a,b,c,d] (no spaces)
-        rospy.loginfo('I heard %s', msg)
-        data = msg.data
-        if len(data) != 4:
-            raise ValueError("Gravity Params don't match")
-        self.A = data[0]
-        self.B = data[1]
-        self.C = data[2]
-        self.D = data[3]
+        
         
     # Callback Function for tuning the gravity parameters
     def callback_number(self, msg):
+        # To call this, do rostopic pub -1 /number ME134/array [a,b,c,d] (no spaces)
+        rospy.loginfo('I heard %s', msg)
+        if len(data) != 4:
+            raise ValueError("Gravity Params don't match")
         self.A = msg.data[0]
+        self.B = msg.data[1]
+        self.C = msg.data[2]
+        self.D = msg.data[3]
 
 
     # Gravity Compensation Function

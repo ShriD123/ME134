@@ -25,7 +25,7 @@
 
   <!-- Start the demo node. -->
   <node pkg ="ME134"
-	type="threeDOF_gravity.py"
+	type="threeDOF_contactdetector.py"
 	name="demo"
 	output="screen"
 	required="true"/>
