@@ -169,7 +169,7 @@ class Generator:
     
     # Callback Function 
     def callback_actual(self, msg):
-        # Future Function to Implement to account for Gravity Compensation
+        
         # Also should read the initial joint pos of the motors to initialize the trajectory
         rospy.loginfo('I heard %s', msg)
        
