@@ -69,10 +69,6 @@ class Generator:
         for i in range(self.dofs):
             rospy.loginfo("Starting motor[%d] '%s' at pos: %f rad",
                           i, self.motors[i], self.initpos[i])
-
-        # Create subscribers for the general case and events.
-        self.sub = rospy.Subscriber('/hebi/joint_states', JointState, self.callback_actual)
-        self.sub_e = rospy.Subscriber('/event', String, self.callback_event)
         
         # Grab the robot's URDF from the parameter server.
         robot = Robot.from_parameter_server()
@@ -119,6 +115,10 @@ class Generator:
         #self.trajectory = Trajectory(Hold(self.curr_t, self.curr_pos, self.hold_time, 'Joint'))
         # Trajectory from the position of the arm received to q_init
         self.trajectory = Trajectory(QuinticSpline(self.curr_t, self.initpos, self.curr_vel, self.curr_accel, self.curr_pos, self.curr_vel, self.curr_accel, self.hold_time, 'Joint'))
+        
+        # Create subscribers for the general case and events.
+        self.sub = rospy.Subscriber('/hebi/joint_states', JointState, self.callback_actual)
+        self.sub_e = rospy.Subscriber('/event', String, self.callback_event)
 
 
     # Update every 10ms!
@@ -181,7 +181,7 @@ class Generator:
         self.act_pos = np.array(msg.position).reshape((3,1))
         self.act_vel = np.array(msg.velocity).reshape((3,1))
         #rospy.loginfo('I heard %s', msg)
-        posthreshold = 0.02
+        posthreshold = 0.06
         if np.any(np.abs(self.act_pos - self.curr_pos) > posthreshold):
             self.contactdetected()
        
