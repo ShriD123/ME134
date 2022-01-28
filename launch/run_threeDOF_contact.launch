@@ -1,0 +1,33 @@
+<launch>
+<!-- Use "roslaunch ME134 run_robot.launch" to start the robot -->
+  <!-- Define general parameters.  These can be overwritten by the
+       roslaunch command line. -->
+  <arg name="urdf"  default="threeDOF.urdf"/>
+  <arg name="model" default="$(find ME134)/urdf/$(arg urdf)"/>
+  <arg name="cfg"   default="$(find ME134)/rviz/viewurdf.rviz" />
+
+
+  <!-- Load the URDF file into the robot_description parameter. -->
+  <param name="robot_description" textfile="$(arg model)"/>
+
+
+  <!-- Start the HEBI node. -->
+  <node pkg ="me134basic"
+	type="hebi"
+	name="hebi"
+	output="screen"
+	required="true">
+    <rosparam>
+      family: "Red"
+      names: ["1", "2", "3"]
+    </rosparam>
+  </node>
+
+  <!-- Start the demo node. -->
+  <node pkg ="ME134"
+	type="threeDOF_contactdetector.py"
+	name="demo"
+	output="screen"
+	required="true"/>
+  
+</launch>

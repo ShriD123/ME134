@@ -71,7 +71,7 @@ class Generator:
                           i, self.motors[i], self.initpos[i])
 
         # Create subscribers for the general case and events.
-        self.sub = rospy.Subscriber('/actual', JointState, self.callback_actual)
+        self.sub = rospy.Subscriber('/hebi/joint_states', JointState, self.callback_actual)
         self.sub_e = rospy.Subscriber('/event', String, self.callback_event)
         
         # Grab the robot's URDF from the parameter server.
@@ -94,6 +94,10 @@ class Generator:
         self.curr_vel = np.array([0.0, 0.0, 0.0]).reshape((3,1))
         self.curr_t = 0.0
         self.curr_accel = np.array([0.0, 0.0, 0.0]).reshape((3,1))
+        
+        # Define values for the actual motor positions
+        self.act_pos = np.array([0.0, 0.0, 0.0]).reshape((3,1))
+        self.act_vel = np.array([0.0, 0.0, 0.0]).reshape((3,1))
         
         # Define the explicit value of the sinusoidal function
         self.amplitude = 0.15
@@ -160,28 +164,32 @@ class Generator:
         self.curr_pos = cmdmsg.position
         self.curr_vel = cmdmsg.velocity
         self.curr_t = t
+       
 
         # Send the command (with the current time).
         cmdmsg.header.stamp = rospy.Time.now()
         self.pub.publish(cmdmsg)
         
-	    # Contact detector
-	    posthreshold = 0.1
-	    if np.any(np.abs(self.act_pos - self.curr_pos) > posthreshold):
-		    self.contactdetected()
         
-    # Contact Detector
-    def contactdetected(self):
-        #TODO
-        rospy.logerr('Contact detected!')
     
     # Callback Function 
     def callback_actual(self, msg):
-        # Also should read the initial joint pos of the motors to initialize the trajectory
-        self.act_pos = msg.position
-        self.act_vel = msg.velocity
-        rospy.loginfo('I heard %s', msg)
+        
+        for i in range(self.dofs):
+            if (msg.name[i] != self.motors[i]):
+                raise ValueError("Motor names don't match")
+        self.act_pos = np.array(msg.position).reshape((3,1))
+        self.act_vel = np.array(msg.velocity).reshape((3,1))
+        #rospy.loginfo('I heard %s', msg)
+        posthreshold = 0.02
+        if np.any(np.abs(self.act_pos - self.curr_pos) > posthreshold):
+            self.contactdetected()
        
+        # Contact Detector
+    def contactdetected(self):
+        #TODO
+        rospy.logerr('contact detected')
+        rospy.logerr(np.abs(self.act_pos - self.curr_pos))
        
     # Callback Function for the Event    
     def callback_event(self, msg):
