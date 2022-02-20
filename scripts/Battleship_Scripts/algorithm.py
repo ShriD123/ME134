@@ -11,9 +11,9 @@ thrower arm to hit the opponent's grid.'''
 
 ###############################################################################
 #
-#  Algorithm Class
+#  Bayes Algorithm Class
 #
-class Algorithm:
+class Bayes:
     #
     # Initialize.
     #

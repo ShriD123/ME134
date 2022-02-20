@@ -5,21 +5,22 @@ import math
 import kinematics as kin
 import numpy as np
 
+from detector import Detector
+from receiver import Receiver
+from thrower import Thrower
+from visualize_battle import Visualization
+from algorithm import Bayes
+
 ''' This is the main code for the Cornhole Battleship project. This is where all
 the constituent nodes are created and the main loop is run. '''
-
-
 
 
 ###############################################################################
 #
 #  Helper Functions
 #
-class Helper:
-    #TODO
-    # This should not be a class, but rather global functions. This is just
-    # a placeholder as a reminder to add in helper functions (if necessary).
-    pass
+
+
 
 
 ###############################################################################
@@ -31,7 +32,35 @@ class Battleship:
     # Initialize.
     #
     def __init__(self):
+        # Initialize the major constituents
+        self.detector = Detector()
+        self.receiver = Receiver()
+        self.thrower = Thrower()
+        self.vis = Visualization()
+        self.bayes = Bayes()
+
+        # TODO: Initialize any helpful global variables
+        self.curr_t = 0.0
+        self.board_size = 5
+        self.ship_sizes = [4, 3, 2]
         
+        # Initialize the board, saved as a 5x5 numpy array
+        # 1 means a ship is at that location, while 0 means it is empty.
+        self.board = np.zeros(self.board_size, self.board_size)
+        ship_locations = self.find_ships(self.board_size, self.ship_sizes)
+        for i in range(len(ship_locations)):
+            self.board[ship_locations[i]] = 1
+
+        # Visualize the board.
+        self.vis.draw_board(self.board)
+
+
+
+
+        # Create publishers and subscribers for each node.
+
+        # Move all the arms to a starting position.
+
         #TODO: Initialize any important variables
 
         #TODO: Create all the publishers and subscribers for each node
