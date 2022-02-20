@@ -20,6 +20,55 @@ the constituent nodes are created and the main loop is run. '''
 #  Helper Functions
 #
 
+#
+# Determine the ship board positions
+#
+def find_ships(self, board_size, ship_sizes):
+    # Eventually return the list of indices corresponding to the ship
+    idx = []
+    VERTICAL = 0
+    HORIZONTAL = 1
+    ship_counter = 1
+
+    while ship_counter != len(ship_sizes):
+        loc_x = np.floor(np.random.uniform(0, board_size))
+        loc_y = np.floor(np.random.uniform(0, board_size))
+        orn = np.floor(np.random.uniform(0, 2))  
+        ship_found = False
+
+        this_ship = []
+        for i in range(ship_sizes(ship_counter)):
+            count_iter = 0
+            while not space_found:
+                # Choose the next position for the ship
+                if orn == VERTICAL:
+                    if (loc_y + i) < board_size:
+                        loc_x_next = loc_x
+                        loc_y_next = loc_y + i
+                    else:
+                        loc_x_next = loc_x
+                        loc_y_next = loc_y - i 
+                elif orn == HORIZONTAL:
+                    if (loc_x + i) < board_size:
+                        loc_x_next = loc_x + i
+                        loc_y_next = loc_y 
+                    else:
+                        loc_x_next = loc_x - i
+                        loc_y_next = loc_y 
+
+                # Test if the space is already occupied
+                if (loc_y_next, loc_x_next) not in idx:
+                    # Note: x corresponds to cols and y corresponds to rows
+                    this_ship.append((loc_y_next, loc_x_next))
+                    space_found = True
+
+                count_iter += 1
+                # Test if too many iterations occur (then it's impossible to place ship, so need new loc) 
+                if count_iter >= 50:
+                    break
+
+        idx.append(this_ship)
+        ship_counter += 1
 
 
 
