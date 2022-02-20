@@ -155,6 +155,34 @@ class Thrower:
 #  Main Code
 #
 if __name__ == "__main__":
-    # TODO: See if this will be necessary.
-    pass
+    # Prepare/initialize this node.
+    rospy.init_node('Thrower')
+
+    # Instantiate the trajectory generator object, encapsulating all
+    # the computation and local variables.
+    thrower = Thrower()
+
+    # Prepare a servo loop at 100Hz.
+    rate  = 100;
+    servo = rospy.Rate(rate)
+    dt    = servo.sleep_dur.to_sec()
+    rospy.loginfo("Running the servo loop with dt of %f seconds (%fHz)" %
+                  (dt, rate))
+
+
+    # Run the servo loop until shutdown (killed or ctrl-C'ed).
+    starttime = rospy.Time.now()
+    while not rospy.is_shutdown():
+
+        # Current time (since start)
+        servotime = rospy.Time.now()
+        t = (servotime - starttime).to_sec()
+
+        # Update the controller.
+        thrower.update(t)
+
+        # Wait for the next turn.  The timing is determined by the
+        # above definition of servo.
+        servo.sleep()
+
     
