@@ -1,0 +1,161 @@
+#!/usr/bin/env python3
+
+import rospy
+import math
+import kinematics as kin
+import numpy as np
+
+'''This code encapsulates the functionality for the receiver arm as well as its
+corresponding error sensing and the necessary subscribers for itself.'''
+
+
+###############################################################################
+#
+#  Trajectory Class
+#
+class Trajectory:
+    #
+    # Initialize
+    #
+    def __init__(self, spline):
+        self.spline = spline
+        self.space = spline.space()
+        
+    def traj_space(self):
+        return self.space
+    
+    def spline(self):
+        return self.spline
+    
+    def update(self, t):
+        (a, b) = self.spline.evaluate(t)
+        return (a, b)
+
+
+###############################################################################
+#
+#  Receiver Class
+#
+class Receiver:
+    #
+    # Initialize.
+    #
+    def __init__(self):
+        # Collect the motor names, which defines the dofs (useful to know)
+        self.motors = ['Red/1', 'Red/2', 'Red/3', 'Red/4']
+        self.dofs = len(self.motors)
+        
+        # Create a publisher to send the joint commands. 
+        # self.pub = rospy.Publisher("/joint_states", JointState, queue_size=5)
+        self.pub = rospy.Publisher("/hebi/joint_commands", JointState, queue_size=5)
+        rospy.sleep(0.25)
+        
+        # Find the starting positions. 
+        msg = rospy.wait_for_message('/hebi/joint_states', JointState)
+        for i in range(self.dofs):
+            if (msg.name[i] != self.motors[i]):
+                raise ValueError("Motor names don't match")
+        self.pos_init = np.array(msg.position).reshape((self.dofs, 1))
+
+        # TODO: Create the necessary subscribers for the general case and events.
+        # self.sub = rospy.Subscriber('/actual', JointState, self.callback_actual)
+        # self.sub_e = rospy.Subscriber('/event', String, self.callback_event)
+        
+        # Grab the robot's URDF from the parameter server.
+        # Might have to change this because we'll have multiple URDFs
+        robot = Robot.from_parameter_server()
+
+        # Instantiate the Kinematics
+        self.kin = kin.Kinematics(robot, 'world', 'tip')
+
+        # Initialize the state of the robot
+        self.curr_pos = self.pos_init
+        self.curr_vel = np.array([0.0, 0.0, 0.0]).reshape((3,1))
+        self.curr_t = 0.0
+        self.curr_accel = np.array([0.0, 0.0, 0.0]).reshape((3,1))
+    
+        
+        # Initialize with holding trajectory
+        # TODO: Will need to implement this as a stack of trajectories
+        # TODO: Initialize to some starting position given the actual position
+        self.trajectory = Trajectory(Hold(self.curr_t, self.curr_pos, self.hold_time, 'Joint'))
+
+    #
+    # Update every 10ms!
+    #
+    def update(self, t):
+        # Create an empty joint state message.
+        cmdmsg = JointState()
+        cmdmsg.name = self.motors
+        
+        # Determine which trajectory and implement functionality
+        if (self.trajectory.traj_space() == 'Joint'):
+            # TODO: Need to update to account for 4DOF
+            (cmdmsg.position, cmdmsg.velocity) = self.trajectory.update(t)
+              
+        elif (self.trajectory.traj_space() == 'Task'):
+            # TODO: Need to update to account for 4DOF
+            (x, xdot) = self.trajectory.update(t)
+            cart_pos = np.array(x).reshape((self.dofs,1))
+            cart_vel = np.array(xdot).reshape((self.dofs,1))
+            
+            cmdmsg.position = self.kin.ikin(cart_pos, self.curr_pos)
+            (T, J) = self.kin.fkin(cmdmsg.position)
+            cmdmsg.velocity = np.linalg.inv(J[0:3,0:3]) @ cart_vel
+        else:
+            raise ValueError('Unknown Spline Type')
+            
+        # TODO: Implement Gravity Compensation
+        cmdmsg.effort = self.gravity(self.curr_pos)
+
+        # Store the command message
+        self.curr_pos = cmdmsg.position
+        self.curr_vel = cmdmsg.velocity
+        self.curr_accel = cmdmsg.effort
+        self.curr_t = t
+
+        # Send the command (with the current time).
+        cmdmsg.header.stamp = rospy.Time.now()
+        self.pub.publish(cmdmsg)
+        
+    #
+    # Gravity Compensation Function
+    #
+    def gravity(self, pos):
+        # TODO: Need to update to account for 4DOF
+        theta_1 = pos[1]; theta_2 = pos[2]
+        tau2 = self.A * math.sin(theta_1 + theta_2) + self.B * math.cos(theta_1 + theta_2)
+        tau1 = self.C * math.sin(theta_1) + self.D * math.cos(theta_1) + tau2
+        return np.array([0, tau1, -1*tau2]).reshape((self.dofs,1)) 
+
+    #
+    # Move to a specified position.
+    #
+    def move(self, pos):
+        # TODO: Need to implement since this function will be used in multiple places.
+        pass
+
+    #
+    # Callback Function 
+    #
+    def callback_actual(self, msg):
+        # TODO: See what you may need this callback function for.
+        rospy.loginfo('I heard %s', msg)
+       
+    #
+    # Callback Function for the Error Sensing
+    #
+    def callback_error(self, msg):
+        #TODO: See exactly how we will want to implement this.
+        rospy.loginfo('Hello! I heard %s', msg.data)
+                            
+    
+
+###############################################################################
+#
+#  Main Code
+#
+if __name__ == "__main__":
+    # TODO: See if this will be necessary.
+    pass
+    
