@@ -100,24 +100,27 @@ class Battleship:
         for i in range(len(ship_locations)):
             self.board[ship_locations[i]] = 1
 
-        # Visualize the board.
+        # Visualize the board. 
+        #TODO: Figure out how to differentiate between player and robot
         self.vis.draw_board(self.board)
 
+        # Create publishers and subscribers for the Detector. 
+        self.pub_image = rospy.Publisher('detection_images_thresh', Image, queue_size=10)
+        self.pub_detect = rospy.Publisher('detections', ManyDetections, queue_size=10)
+        self.sub_image = rospy.Subscriber('/usb_cam/image_raw', Image, self.detector.aruco_detect)
+
+        # Create publishers and subscribers for the Arms. Note that this combines all working motors.
+        self.pub_motors = rospy.Publisher("/joint_states", JointState, queue_size=5)
+        # self.pub_motors = rospy.Publisher("/hebi/joint_commands", JointState, queue_size=5)
+        self.sub_motors = rospy.Subscriber('/hebi/joint_states', JointState, self.callback, queue_size=5)
 
 
 
-        # Create publishers and subscribers for each node.
+        # Give some time for the publishers and subscribers to connect.
+        rospy.sleep(0.50)
 
-        # Move all the arms to a starting position.
+        #TODO: Move all the arms to a starting position.
 
-        #TODO: Initialize any important variables
-
-        #TODO: Create all the publishers and subscribers for each node
-
-        #TODO: Create the Visualization, Detector, Thrower, Receiver Nodes
-
-        #TODO: Generate the robot's board and move all arms to a starting position.
-        pass
         
     #    
     # Update every 10ms!
@@ -132,7 +135,8 @@ class Battleship:
     #
     def callback(self, msg):
         #TODO: Figure out number of callback functions and how to implement
-       
+        #TODO: As is currently, will want to call the update/gravity functions of both arms
+        pass
                             
     
 
