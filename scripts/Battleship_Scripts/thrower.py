@@ -43,25 +43,24 @@ class Trajectory:
     #
     def add_spline(self, next_spline):
         self.splines.append(next_spline)
-    
+
+
     #
-    # Determine the pos and vel from current trajectory
+    # Checks if there are no trajectories
+    #
+    def is_empty(self):
+        if len(self.splines) == 0:
+            return True
+        else:
+            return False
+    
+
+    #
+    # Determine the pos and vel from current trajectory... TODO: Maybe update based on if finished a trajectory or none remaining?
     #
     def update(self, t):
         (pos, vel) = self.curr_spline.evaluate(t)
         return (pos, vel)
-
-###############################################################################
-#
-#  Helper Functions
-#
-
-#
-# Determine the speed and end position of the thrower for a given target position in xyz space
-#
-def compute_spline(self, target):
-    #TODO: To be implemented with a fit to a model.
-    # For now, we will just use kinematic equations (once testing of arm is complete)
 
 
 ###############################################################################
@@ -93,6 +92,7 @@ class Thrower:
         # TODO: Create the necessary subscribers for the general case and events.
         # self.sub = rospy.Subscriber('/actual', JointState, self.callback_actual)
         # self.sub_e = rospy.Subscriber('/event', String, self.callback_event)
+        self.sub_hackysack = rospy.Subscriber('/force_sensor', JointState, self.callback_hackysack)
         
         # Grab the robot's URDF from the parameter server.
         # Might have to change this because we'll have multiple URDFs
@@ -108,12 +108,18 @@ class Thrower:
         self.curr_accel = np.array([0.0, 0.0, 0.0]).reshape((3,1))
 
         # Initialize the trajectory
-        start_pos = np.array([0.0, 0.0]).reshape((self.dofs, 1))
-        self.trajectory = Trajectory([Goto5(self.curr_t, self.pos_init, start_pos, 5.0)])
+        self.START = np.array([np.pi/2, 0.0]).reshape((self.dofs, 1))
+        self.LAUNCH = np.array([0.0, 0.0]).reshape((self.dofs, 1))
+        self.TRAJ_TIME = 5.0
+        self.trajectory = Trajectory([Goto5(self.curr_t, self.pos_init, start_pos, self.TRAJ_TIME)])
 
         # Initialize the gravity parameters TODO: Tune and test these parameters for our 2DOF
-        self.gravity = np.zeros((4, 1))
+        self.grav_A = 0.0
+        self.grav_B = 0.0
 
+        # Initialize any helpful global variables
+        self.is_waiting = False
+        
 
     #
     # Update every 10ms!
@@ -123,31 +129,49 @@ class Thrower:
         cmdmsg = JointState()
         cmdmsg.name = self.motors
 
-
-        # # TODO: Code for tuning gravity
+        # # TODO: Code for tuning gravity... Delete when completed tuning.
         # # Set q_des = q_actual to make the arm "float"
         # nan = float('nan')
         # cmdmsg.position = np.array([nan, nan, nan]).reshape((3,1))
         # cmdmsg.velocity = np.array([nan, nan, nan]).reshape((3,1))
         # cmdmsg.effort = self.gravity(self.curr_pos)
-        
-        # Update with respect to the current trajectory.
-        if (self.trajectory.traj_space() == 'Joint'):
-            (cmdmsg.position, cmdmsg.velocity) = self.trajectory.update(t)
-              
-        elif (self.trajectory.traj_space() == 'Task'):
-            (x, xdot) = self.trajectory.update(t)
-            cart_pos = np.array(x).reshape((self.dofs,1))
-            cart_vel = np.array(xdot).reshape((self.dofs,1))
-            
-            cmdmsg.position = self.kin.ikin(cart_pos, self.curr_pos)
-            (T, J) = self.kin.fkin(cmdmsg.position)
-            cmdmsg.velocity = np.linalg.inv(J[0:3,0:3]) @ cart_vel
+
+        if self.is_waiting:
+            # Make the arm float in the starting position if just waiting.
+            cmdmsg.position = self.START
+            cmdmsg.velocity = np.array([0.0, 0.0, 0.0]).reshape((3,1))
+            cmdmsg.effort = self.gravity(self.curr_pos)
+
         else:
-            raise ValueError('Unknown Spline Type')
+            # Check if we have no trajectories to follow.
+            if self.trajectory.is_empty():
+                # Issue: Trajectory could be empty, but current spline is not. TODO: Fix logic.
+                self.is_waiting = True
+                
             
-        # TODO: Implement Gravity Compensation
-        cmdmsg.effort = self.gravity(self.curr_pos)
+            else:
+
+                # If the current segment is done, shift to the next segment. TODO: Need to update Trajectory class for this. Maybe do this within the Trajectory class itself?
+                if (t - self.curr_t >= self.segments[self.index].duration()):
+                    self.trajectory.pop_spline()
+                    # Check before if trajectory is empty list. Then go to waiting and just float.
+                
+                # Update with respect to the current trajectory.
+                if (self.trajectory.traj_space() == 'Joint'):
+                    (cmdmsg.position, cmdmsg.velocity) = self.trajectory.update(t)
+                    
+                elif (self.trajectory.traj_space() == 'Task'):
+                    (x, xdot) = self.trajectory.update(t)
+                    cart_pos = np.array(x).reshape((self.dofs,1))
+                    cart_vel = np.array(xdot).reshape((self.dofs,1))
+                    
+                    cmdmsg.position = self.kin.ikin(cart_pos, self.curr_pos)
+                    (T, J) = self.kin.fkin(cmdmsg.position)
+                    cmdmsg.velocity = np.linalg.inv(J[0:3,0:3]) @ cart_vel
+                else:
+                    raise ValueError('Unknown Spline Type')
+                    
+                cmdmsg.effort = self.gravity(self.curr_pos)
 
         # Store the command message
         self.curr_pos = cmdmsg.position
@@ -159,33 +183,41 @@ class Thrower:
         cmdmsg.header.stamp = rospy.Time.now()
         self.pub.publish(cmdmsg)
         
+
     #
     # Gravity Compensation Function
     #
     def gravity(self, pos):
-        # TODO: Need to update to account for 2DOF --> Will require new functions
         theta_1 = pos[1]
-        tau = self.A * math.sin(theta_1 + theta_2) + self.B * math.cos(theta_1 + theta_2)
-        tau1 = self.C * math.sin(theta_1) + self.D * math.cos(theta_1) + tau2
+        tau = self.grav_A * math.sin(theta_1) + self.grav_B * math.cos(theta_1)
+        return np.array([0, tau]).reshape((self.dofs,1)) 
 
-        return np.array([0, tau1, -1*tau2]).reshape((self.dofs,1)) 
-
-    #
-    # Move to a specified position.
-    #
-    def move(self, pos):
-        # TODO: Need to implement since this function will be used in multiple places.
-        pass
 
     #
-    # Callback Function 
+    # Determine the speed and end position of the thrower for a given target position in xyz space
     #
-    def callback_actual(self, msg):
-        # TODO: See what you may need this callback function for.
-        rospy.loginfo('I heard %s', msg)
+    def compute_spline(self, target):
+        #TODO: To be implemented with a fit to a model.
+        # For now, we will just use kinematic equations (once testing of arm is complete)
+
+
+    #
+    # Callback Function for when we detect a hackysack (somehow through a force sensor) sitting in the scoop.
+    #
+    def callback_hackysack(self, msg):
+        launch_spline = self.compute_spline(msg.target)     # Target being the goal we want to hit. TODO: Figure out how exactly to implement
+        
+        # I can already see it, but there's gonna be a logic issue with the self.curr_t the way the splines are implemented... It will not be the same as the T-t0 since multiple defined here.
+        self.trajectory.add_spline(Goto5(self.curr_t, self.curr_pos, self.START, self.TRAJ_TIME))
+        self.trajectory.add_spline(launch_spline)
+        self.trajectory.add_spline(Goto5(self.curr_t, self.curr_pos, self.LAUNCH, self.TRAJ_TIME))
+
+        self.is_waiting = False
+        # rospy.loginfo('I heard %s', msg)
        
+
     #
-    # Callback Function for the Error Sensing
+    # Callback Function for the Error Sensing... How to implement?
     #
     def callback_error(self, msg):
         #TODO: See exactly how we will want to implement this.
