@@ -88,7 +88,11 @@ class Battleship:
         self.vis = Visualization()
         self.bayes = Bayes()
 
-        # TODO: Initialize any helpful global variables
+        # Collect the motor names, which defines the dofs (useful to know)
+        self.motors = ['Red/1', 'Red/2', 'Red/3', 'Red/4', 'Red/5', 'Red/6', 'Red/7']
+        self.dofs = len(self.motors)
+
+        # Initialize any helpful global variables
         self.curr_t = 0.0
         self.board_size = 5
         self.ship_sizes = [4, 3, 2]
@@ -101,7 +105,7 @@ class Battleship:
             self.board[ship_locations[i]] = 1
 
         # Visualize the board. 
-        #TODO: Figure out how to differentiate between player and robot
+        #TODO: Figure out how to differentiate between player and robot and different ships
         self.vis.draw_board(self.board)
 
         # Create publishers and subscribers for the Detector. 
@@ -114,21 +118,42 @@ class Battleship:
         # self.pub_motors = rospy.Publisher("/hebi/joint_commands", JointState, queue_size=5)
         self.sub_motors = rospy.Subscriber('/hebi/joint_states', JointState, self.callback, queue_size=5)
 
-
-
         # Give some time for the publishers and subscribers to connect.
         rospy.sleep(0.50)
 
         #TODO: Move all the arms to a starting position.
 
-        
+        #TODO: Let player choose their board (how to implement?)
+
+        #TODO: Make a noise to indicate when ready (let player take first turn?)
+
+
     #    
     # Update every 10ms!
     #
     def update(self, t):
+        # Create an empty joint state message.
+        cmdmsg = JointState()
+        cmdmsg.name = self.motors
 
-        #TODO: Create JointState messages for both arms
-        pass
+        # Save current timestamp
+        self.curr_t = t
+
+        # Check if any detection has occurred
+        msg = self.detector.is_detect()             # Need to implement is_detect()
+        # TODO: Implement what to do with the corresponding detection later.
+
+        # Update both receiver and thrower. All storage of info happens in those update functions.
+        q_receiver, qdot_receiver = self.receiver.update(t)
+        q_thrower, qdot_thrower = self.thrower.update(t)
+        qdotdot_receiver = self.receiver.gravity()              # Definitely wrong, but will want something like this
+        qdotdot_thrower = self.thrower.gravity()              # Definitely wrong, but will want something like this
+
+        # Send the command (with the current time).
+        cmdmsg.position = np.array([q_thrower, q_receiver]).reshape((self.dofs, 1))
+        cmdmsg.header.stamp = rospy.Time.now()
+        self.pub_motors.publish(cmdmsg)
+
         
     #
     # Callback Function 
