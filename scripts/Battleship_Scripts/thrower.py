@@ -3,8 +3,9 @@
 import rospy
 import math
 import kinematics as kin
-import splines
 import numpy as np
+
+from splines import CubicSpline, Goto, Hold, Stay, QuinticSpline, Goto5
 
 '''This code encapsulates the functionality for the thrower arm as well as its
 corresponding error sensing and the necessary subscribers for itself.'''
@@ -73,21 +74,21 @@ class Thrower:
     #
     def __init__(self):
         # Collect the motor names, which defines the dofs (useful to know)
-        self.motors = ['Red/1', 'Red/2', 'Red/3', 'Red/4']
+        self.motors = ['Red/1', 'Red/2']
         self.dofs = len(self.motors)
         
         # Create a publisher to send the joint commands. 
-        #TODO: When moving to battleship, will want to remove these
+        # TODO: When moving to battleship, will want to remove these
         self.pub = rospy.Publisher("/joint_states", JointState, queue_size=5)
         # self.pub = rospy.Publisher("/hebi/joint_commands", JointState, queue_size=5)
         rospy.sleep(0.25)
         
-        # # Find the starting positions. 
-        # msg = rospy.wait_for_message('/hebi/joint_states', JointState)
-        # for i in range(self.dofs):
-        #     if (msg.name[i] != self.motors[i]):
-        #         raise ValueError("Motor names don't match")
-        # self.pos_init = np.array(msg.position).reshape((self.dofs, 1))
+        # Find the starting positions. 
+        msg = rospy.wait_for_message('/hebi/joint_states', JointState)
+        for i in range(self.dofs):
+            if (msg.name[i] != self.motors[i]):
+                raise ValueError("Motor names don't match")
+        self.pos_init = np.array(msg.position).reshape((self.dofs, 1))
 
         # TODO: Create the necessary subscribers for the general case and events.
         # self.sub = rospy.Subscriber('/actual', JointState, self.callback_actual)
@@ -106,12 +107,13 @@ class Thrower:
         self.curr_t = 0.0
         self.curr_accel = np.array([0.0, 0.0, 0.0]).reshape((3,1))
 
-    
-        
-        # Initialize with holding trajectory
-        # TODO: Will need to implement this as a stack of trajectories
-        # TODO: Initialize to some starting position given the actual position
-        self.trajectory = Trajectory(Hold(self.curr_t, self.curr_pos, self.hold_time, 'Joint'))
+        # Initialize the trajectory
+        start_pos = np.array([0.0, 0.0]).reshape((self.dofs, 1))
+        self.trajectory = Trajectory([Goto5(self.curr_t, self.pos_init, start_pos, 5.0)])
+
+        # Initialize the gravity parameters TODO: Tune and test these parameters for our 2DOF
+        self.gravity = np.zeros((4, 1))
+
 
     #
     # Update every 10ms!
@@ -120,14 +122,20 @@ class Thrower:
         # Create an empty joint state message. TODO: Remove when integrating with battleship.py
         cmdmsg = JointState()
         cmdmsg.name = self.motors
+
+
+        # # TODO: Code for tuning gravity
+        # # Set q_des = q_actual to make the arm "float"
+        # nan = float('nan')
+        # cmdmsg.position = np.array([nan, nan, nan]).reshape((3,1))
+        # cmdmsg.velocity = np.array([nan, nan, nan]).reshape((3,1))
+        # cmdmsg.effort = self.gravity(self.curr_pos)
         
-        # Determine which trajectory and implement functionality
+        # Update with respect to the current trajectory.
         if (self.trajectory.traj_space() == 'Joint'):
-            # TODO: Need to update to account for 4DOF
             (cmdmsg.position, cmdmsg.velocity) = self.trajectory.update(t)
               
         elif (self.trajectory.traj_space() == 'Task'):
-            # TODO: Need to update to account for 4DOF
             (x, xdot) = self.trajectory.update(t)
             cart_pos = np.array(x).reshape((self.dofs,1))
             cart_vel = np.array(xdot).reshape((self.dofs,1))
@@ -155,10 +163,11 @@ class Thrower:
     # Gravity Compensation Function
     #
     def gravity(self, pos):
-        # TODO: Need to update to account for 4DOF
-        theta_1 = pos[1]; theta_2 = pos[2]
-        tau2 = self.A * math.sin(theta_1 + theta_2) + self.B * math.cos(theta_1 + theta_2)
+        # TODO: Need to update to account for 2DOF --> Will require new functions
+        theta_1 = pos[1]
+        tau = self.A * math.sin(theta_1 + theta_2) + self.B * math.cos(theta_1 + theta_2)
         tau1 = self.C * math.sin(theta_1) + self.D * math.cos(theta_1) + tau2
+
         return np.array([0, tau1, -1*tau2]).reshape((self.dofs,1)) 
 
     #
