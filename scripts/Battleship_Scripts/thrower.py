@@ -3,6 +3,7 @@
 import rospy
 import math
 import kinematics as kin
+import splines
 import numpy as np
 
 '''This code encapsulates the functionality for the thrower arm as well as its
@@ -17,24 +18,54 @@ class Trajectory:
     #
     # Initialize
     #
-    def __init__(self, spline):
-        self.spline = spline
-        self.space = spline.space()
-        
+    def __init__(self, list_splines=[]):
+        self.splines = list_splines
+        if len(list_splines) == 0:
+            self.curr_spline = None
+        else:
+            self.curr_spline = self.splines.pop()
+
+    #
+    # Returns the space of the current trajectory
+    #    
     def traj_space(self):
-        return self.space
+        return self.curr_spline.space()
     
-    def spline(self):
-        return self.spline
+    #
+    # Returns the trajectory at the top of the stack
+    #
+    def pop_spline(self):
+        self.curr_spline = self.splines.pop()
+
+    #
+    # Adds a trajectory to the stack (LIFO)
+    #
+    def add_spline(self, next_spline):
+        self.splines.append(next_spline)
     
+    #
+    # Determine the pos and vel from current trajectory
+    #
     def update(self, t):
-        (a, b) = self.spline.evaluate(t)
-        return (a, b)
+        (pos, vel) = self.curr_spline.evaluate(t)
+        return (pos, vel)
+
+###############################################################################
+#
+#  Helper Functions
+#
+
+#
+# Determine the speed and end position of the thrower for a given target position in xyz space
+#
+def compute_spline(self, target):
+    #TODO: To be implemented with a fit to a model.
+    # For now, we will just use kinematic equations (once testing of arm is complete)
 
 
 ###############################################################################
 #
-#  Thrower Class
+#  Thrower Class... For now, it will be implemented as a standalone class (soon to be integrated into Battleship)
 #
 class Thrower:
     #
@@ -46,16 +77,17 @@ class Thrower:
         self.dofs = len(self.motors)
         
         # Create a publisher to send the joint commands. 
-        # self.pub = rospy.Publisher("/joint_states", JointState, queue_size=5)
-        self.pub = rospy.Publisher("/hebi/joint_commands", JointState, queue_size=5)
+        #TODO: When moving to battleship, will want to remove these
+        self.pub = rospy.Publisher("/joint_states", JointState, queue_size=5)
+        # self.pub = rospy.Publisher("/hebi/joint_commands", JointState, queue_size=5)
         rospy.sleep(0.25)
         
-        # Find the starting positions. 
-        msg = rospy.wait_for_message('/hebi/joint_states', JointState)
-        for i in range(self.dofs):
-            if (msg.name[i] != self.motors[i]):
-                raise ValueError("Motor names don't match")
-        self.pos_init = np.array(msg.position).reshape((self.dofs, 1))
+        # # Find the starting positions. 
+        # msg = rospy.wait_for_message('/hebi/joint_states', JointState)
+        # for i in range(self.dofs):
+        #     if (msg.name[i] != self.motors[i]):
+        #         raise ValueError("Motor names don't match")
+        # self.pos_init = np.array(msg.position).reshape((self.dofs, 1))
 
         # TODO: Create the necessary subscribers for the general case and events.
         # self.sub = rospy.Subscriber('/actual', JointState, self.callback_actual)
@@ -73,6 +105,7 @@ class Thrower:
         self.curr_vel = np.array([0.0, 0.0, 0.0]).reshape((3,1))
         self.curr_t = 0.0
         self.curr_accel = np.array([0.0, 0.0, 0.0]).reshape((3,1))
+
     
         
         # Initialize with holding trajectory
@@ -84,7 +117,7 @@ class Thrower:
     # Update every 10ms!
     #
     def update(self, t):
-        # Create an empty joint state message.
+        # Create an empty joint state message. TODO: Remove when integrating with battleship.py
         cmdmsg = JointState()
         cmdmsg.name = self.motors
         
