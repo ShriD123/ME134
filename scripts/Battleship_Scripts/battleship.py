@@ -136,7 +136,7 @@ class Battleship:
         cmdmsg = JointState()
         cmdmsg.name = self.motors
 
-        # Save current timestamp
+        # Save current timestamp for splines
         self.curr_t = t
 
         # Check if any detection has occurred
@@ -151,6 +151,8 @@ class Battleship:
 
         # Send the command (with the current time).
         cmdmsg.position = np.array([q_thrower, q_receiver]).reshape((self.dofs, 1))
+        cmdmsg.velocity = np.array([qdot_thrower, qdot_receiver]).reshape((self.dofs, 1))
+        cmdmsg.effort = np.array([qdotdot_thrower, qdotdot_receiver]).reshape((self.dofs, 1))
         cmdmsg.header.stamp = rospy.Time.now()
         self.pub_motors.publish(cmdmsg)
 

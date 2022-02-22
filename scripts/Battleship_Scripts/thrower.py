@@ -98,7 +98,7 @@ class Thrower:
         #     if (msg.name[i] != self.motors[i]):
         #         raise ValueError("Motor names don't match")
         # self.pos_init = np.array(msg.position).reshape((self.dofs, 1))
-        self.pos_init = np.array([0.0, 0.0]).reshape((self.dofs, 1))
+        self.pos_init = np.array([0.0, 0.0]).reshape((2, 1))
 
         # TODO: Create the necessary subscribers for the general case and events.
         # self.sub = rospy.Subscriber('/actual', JointState, self.callback_actual)
@@ -114,15 +114,15 @@ class Thrower:
 
         # Initialize the state of the robot
         self.curr_pos = self.pos_init
-        self.curr_vel = np.array([0.0, 0.0]).reshape((self.dofs,1))
+        self.curr_vel = np.array([0.0, 0.0]).reshape((2, 1))
         self.curr_t = 0.0
-        self.curr_accel = np.array([0.0, 0.0]).reshape((self.dofs,1))
+        self.curr_accel = np.array([0.0, 0.0]).reshape((2, 1))
 
         # Initialize the trajectory
-        self.START = np.array([np.pi/2, 0.0]).reshape((self.dofs,1))
-        self.LAUNCH = np.array([0.0, 0.0]).reshape((self.dofs,1))
+        self.START = np.array([np.pi/2, 0.0]).reshape((2, 1))
+        self.LAUNCH = np.array([0.0, 0.0]).reshape((2, 1))
         self.TRAJ_TIME = 3.0
-        self.trajectory = Trajectory([Goto5(self.curr_t, self.pos_init, start_pos, self.TRAJ_TIME)])
+        self.trajectory = Trajectory([Goto5(self.curr_t, self.pos_init, self.START, self.TRAJ_TIME)])
 
         # Initialize the gravity parameters TODO: Tune and test these parameters for our 2DOF
         self.grav_A = 0.0
@@ -156,7 +156,7 @@ class Thrower:
         if self.is_waiting:
             # Make the arm float in the starting position if just waiting.
             cmdmsg.position = self.START
-            cmdmsg.velocity = np.array([0.0, 0.0]).reshape((self.dofs,1))
+            cmdmsg.velocity = np.array([0.0, 0.0]).reshape((2, 1))
             cmdmsg.effort = self.gravity(self.curr_pos)
         else:
             # Update with respect to the current trajectory.
@@ -165,7 +165,7 @@ class Thrower:
                 
             elif (self.trajectory.traj_space() == 'Task'):
                 # TODO: Update for a 2DOF Arm... Admittedly, we could just bypass this by never needing this.
-                # TODO: Consider if we even need this set of code... Right now it will fail.
+                # TODO: Consider if we even need this set of code... Right now it will fail, but do we need task space?
                 (x, xdot) = self.trajectory.update(t)
                 cart_pos = np.array(x).reshape((self.dofs,1))
                 cart_vel = np.array(xdot).reshape((self.dofs,1))

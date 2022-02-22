@@ -97,7 +97,7 @@ class Receiver:
         #     if (msg.name[i] != self.motors[i]):
         #         raise ValueError("Motor names don't match")
         # self.pos_init = np.array(msg.position).reshape((self.dofs, 1))
-        self.pos_init = np.array([0.0, 0.0, 0.0, 0.0]).reshape((self.dofs, 1))
+        self.pos_init = np.array([0.0, 0.0, 0.0, 0.0]).reshape((4, 1))
 
         # TODO: Create the necessary subscribers for the general case and events.
         # self.sub = rospy.Subscriber('/actual', JointState, self.callback_actual)
@@ -113,15 +113,14 @@ class Receiver:
 
         # Initialize the state of the robot
         self.curr_pos = self.pos_init
-        self.curr_vel = np.array([0.0, 0.0, 0.0, 0.0]).reshape((self.dofs, 1))
+        self.curr_vel = np.array([0.0, 0.0, 0.0, 0.0]).reshape((4, 1))
         self.curr_t = 0.0
-        self.curr_accel = np.array([0.0, 0.0, 0.0, 0.0]).reshape((self.dofs, 1))
+        self.curr_accel = np.array([0.0, 0.0, 0.0, 0.0]).reshape((4, 1))
     
         # Initialize the trajectory
-        self.START = np.array([np.pi/2, 0.0]).reshape((self.dofs, 1))
-        self.LAUNCH = np.array([0.0, 0.0]).reshape((self.dofs, 1))
-        self.TRAJ_TIME = 3.0
-        self.trajectory = Trajectory([Goto5(self.curr_t, self.pos_init, start_pos, self.TRAJ_TIME)])
+        self.START = np.array([np.pi/2, 0.0, 0.0, 0.0]).reshape((4, 1))
+        self.TRAJ_TIME = 5.0        
+        self.trajectory = Trajectory([Goto5(self.curr_t, self.pos_init, self.START, self.TRAJ_TIME)])
 
         # Initialize the gravity parameters TODO: Tune and test these parameters for our 4DOF
         self.grav_A = 0.0
@@ -154,8 +153,8 @@ class Receiver:
         elif (self.trajectory.traj_space() == 'Task'):
             # TODO: Need to update to account for 4DOF
             (x, xdot) = self.trajectory.update(t)
-            cart_pos = np.array(x).reshape((self.dofs,1))
-            cart_vel = np.array(xdot).reshape((self.dofs,1))
+            cart_pos = np.array(x).reshape((3,1))
+            cart_vel = np.array(xdot).reshape((3,1))
             
             cmdmsg.position = self.kin.ikin(cart_pos, self.curr_pos)
             (T, J) = self.kin.fkin(cmdmsg.position)
@@ -163,7 +162,7 @@ class Receiver:
         else:
             raise ValueError('Unknown Spline Type')
             
-        # TODO: Implement Gravity Compensation
+        # TODO: Implement Gravity Compensation Function for 4DOF
         cmdmsg.effort = self.gravity(self.curr_pos)
 
         # Store the command message
@@ -202,7 +201,6 @@ class Receiver:
         rospy.loginfo('Hello! I heard %s', msg.data)
                             
     
-
 ###############################################################################
 #
 #  Main Code
