@@ -33,6 +33,7 @@
 #
 #   The segments also assume a t=0 start time.  That is, when calling
 #   evaluate(), please first subtract the start time of the segment!
+#   Note: This has now been updated to account for the start time of each segment
 #
 #   The p0,pf,v0,vf,a0,af may be NumPy arrays.
 #
@@ -67,7 +68,7 @@ class CubicSpline:
     def duration(self):
         return(self.T)
 
-    # Compute the position/velocity for a given time (w.r.t. t=0 start).
+    # Compute the position/velocity for a given time.
     def evaluate(self, t):
         dt = t - self.t0
         # Compute and return the position and velocity.
@@ -120,8 +121,12 @@ class QuinticSpline:
     # Report the segment's duration (time length).
     def duration(self):
         return(self.T)
+    
+    # Report the segment's starting time.
+    def start_time(self):
+        return(self.t0)
 
-    # Compute the position/velocity for a given time (w.r.t. t=0 start).
+    # Compute the position/velocity for a given time.
     def evaluate(self, t):
         # Compute and return the position and velocity.
         dt = t - self.t0
