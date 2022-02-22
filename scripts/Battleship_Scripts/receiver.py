@@ -42,6 +42,27 @@ class Trajectory:
     #
     def add_spline(self, next_spline):
         self.splines.append(next_spline)
+
+    #
+    # Checks if there are no trajectories
+    #
+    def is_empty(self):
+        if len(self.splines) == 0:
+            return True
+        else:
+            return False
+
+    #
+    # Check the duration of the current trajectory.
+    #
+    def duration(self):
+        return self.curr_spline.duration()
+    
+    #
+    # Check the starting time of the current trajectory.
+    #
+    def start_time(self):
+        return self.curr_spline.start_time())
     
     #
     # Determine the pos and vel from current trajectory
@@ -65,21 +86,23 @@ class Receiver:
         self.dofs = len(self.motors)
         
         # Create a publisher to send the joint commands. 
-        #TODO: When moving to battleship, will want to remove these
-        # self.pub = rospy.Publisher("/joint_states", JointState, queue_size=5)
-        self.pub = rospy.Publisher("/hebi/joint_commands", JointState, queue_size=5)
+        # TODO: When moving to battleship, will want to remove these
+        self.pub = rospy.Publisher("/joint_states", JointState, queue_size=5)
+        # self.pub = rospy.Publisher("/hebi/joint_commands", JointState, queue_size=5)
         rospy.sleep(0.25)
         
-        # Find the starting positions. 
-        msg = rospy.wait_for_message('/hebi/joint_states', JointState)
-        for i in range(self.dofs):
-            if (msg.name[i] != self.motors[i]):
-                raise ValueError("Motor names don't match")
-        self.pos_init = np.array(msg.position).reshape((self.dofs, 1))
+        # # Find the starting positions. 
+        # msg = rospy.wait_for_message('/hebi/joint_states', JointState)
+        # for i in range(self.dofs):
+        #     if (msg.name[i] != self.motors[i]):
+        #         raise ValueError("Motor names don't match")
+        # self.pos_init = np.array(msg.position).reshape((self.dofs, 1))
+        self.pos_init = np.array([0.0, 0.0, 0.0, 0.0]).reshape((self.dofs, 1))
 
         # TODO: Create the necessary subscribers for the general case and events.
         # self.sub = rospy.Subscriber('/actual', JointState, self.callback_actual)
         # self.sub_e = rospy.Subscriber('/event', String, self.callback_event)
+        self.sub_hackysack = rospy.Subscriber('/force_sensor', JointState, self.callback_hackysack)
         
         # Grab the robot's URDF from the parameter server.
         # Might have to change this because we'll have multiple URDFs
@@ -90,27 +113,42 @@ class Receiver:
 
         # Initialize the state of the robot
         self.curr_pos = self.pos_init
-        self.curr_vel = np.array([0.0, 0.0, 0.0]).reshape((3,1))
+        self.curr_vel = np.array([0.0, 0.0, 0.0, 0.0]).reshape((self.dofs, 1))
         self.curr_t = 0.0
-        self.curr_accel = np.array([0.0, 0.0, 0.0]).reshape((3,1))
+        self.curr_accel = np.array([0.0, 0.0, 0.0, 0.0]).reshape((self.dofs, 1))
     
-        
-        # Initialize with holding trajectory
-        # TODO: Will need to implement this as a stack of trajectories
-        # TODO: Initialize to some starting position given the actual position
-        self.trajectory = Trajectory(Hold(self.curr_t, self.curr_pos, self.hold_time, 'Joint'))
+        # Initialize the trajectory
+        self.START = np.array([np.pi/2, 0.0]).reshape((self.dofs, 1))
+        self.LAUNCH = np.array([0.0, 0.0]).reshape((self.dofs, 1))
+        self.TRAJ_TIME = 3.0
+        self.trajectory = Trajectory([Goto5(self.curr_t, self.pos_init, start_pos, self.TRAJ_TIME)])
+
+        # Initialize the gravity parameters TODO: Tune and test these parameters for our 4DOF
+        self.grav_A = 0.0
+        self.grav_B = 0.0
+        self.grav_C = 0.0
+        self.grav_D = 0.0
+
+        # Initialize any helpful global variables
+        self.is_waiting = False
 
     #
     # Update every 10ms!
     #
     def update(self, t):
-        # Create an empty joint state message. TODO: Remove when integrating with battleship.p
+        # Create an empty joint state message. TODO: Remove when integrating with battleship.py
         cmdmsg = JointState()
         cmdmsg.name = self.motors
+
+        # # TODO: Code for tuning gravity... Delete when completed tuning.
+        # # Set q_des = q_actual to make the arm "float"
+        # nan = float('nan')
+        # cmdmsg.position = np.array([nan, nan, nan]).reshape((3,1))
+        # cmdmsg.velocity = np.array([nan, nan, nan]).reshape((3,1))
+        # cmdmsg.effort = self.gravity(self.curr_pos)
         
         # Determine which trajectory and implement functionality
         if (self.trajectory.traj_space() == 'Joint'):
-            # TODO: Need to update to account for 4DOF
             (cmdmsg.position, cmdmsg.velocity) = self.trajectory.update(t)
               
         elif (self.trajectory.traj_space() == 'Task'):
@@ -142,18 +180,12 @@ class Receiver:
     # Gravity Compensation Function
     #
     def gravity(self, pos):
-        # TODO: Need to update to account for 4DOF
+        # TODO: Need to update to account for 4DOF... Do we need an additional variable for the wrist?
         theta_1 = pos[1]; theta_2 = pos[2]
-        tau2 = self.A * math.sin(theta_1 + theta_2) + self.B * math.cos(theta_1 + theta_2)
-        tau1 = self.C * math.sin(theta_1) + self.D * math.cos(theta_1) + tau2
-        return np.array([0, tau1, -1*tau2]).reshape((self.dofs,1)) 
+        tau2 = self.grav_A * math.sin(theta_1 + theta_2) + self.grav_B * math.cos(theta_1 + theta_2)
+        tau1 = self.grav_C * math.sin(theta_1) + self.grav_D * math.cos(theta_1) + tau2
+        return np.array([0.0, tau1, tau2, 0.0]).reshape((self.dofs,1)) 
 
-    #
-    # Move to a specified position.
-    #
-    def move(self, pos):
-        # TODO: Need to implement since this function will be used in multiple places.
-        pass
 
     #
     # Callback Function 

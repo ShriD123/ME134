@@ -98,6 +98,7 @@ class Thrower:
         #     if (msg.name[i] != self.motors[i]):
         #         raise ValueError("Motor names don't match")
         # self.pos_init = np.array(msg.position).reshape((self.dofs, 1))
+        self.pos_init = np.array([0.0, 0.0]).reshape((self.dofs, 1))
 
         # TODO: Create the necessary subscribers for the general case and events.
         # self.sub = rospy.Subscriber('/actual', JointState, self.callback_actual)
@@ -113,13 +114,13 @@ class Thrower:
 
         # Initialize the state of the robot
         self.curr_pos = self.pos_init
-        self.curr_vel = np.array([0.0, 0.0, 0.0]).reshape((3,1))
+        self.curr_vel = np.array([0.0, 0.0]).reshape((self.dofs,1))
         self.curr_t = 0.0
-        self.curr_accel = np.array([0.0, 0.0, 0.0]).reshape((3,1))
+        self.curr_accel = np.array([0.0, 0.0]).reshape((self.dofs,1))
 
         # Initialize the trajectory
-        self.START = np.array([np.pi/2, 0.0]).reshape((self.dofs, 1))
-        self.LAUNCH = np.array([0.0, 0.0]).reshape((self.dofs, 1))
+        self.START = np.array([np.pi/2, 0.0]).reshape((self.dofs,1))
+        self.LAUNCH = np.array([0.0, 0.0]).reshape((self.dofs,1))
         self.TRAJ_TIME = 3.0
         self.trajectory = Trajectory([Goto5(self.curr_t, self.pos_init, start_pos, self.TRAJ_TIME)])
 
@@ -155,7 +156,7 @@ class Thrower:
         if self.is_waiting:
             # Make the arm float in the starting position if just waiting.
             cmdmsg.position = self.START
-            cmdmsg.velocity = np.array([0.0, 0.0, 0.0]).reshape((3,1))
+            cmdmsg.velocity = np.array([0.0, 0.0]).reshape((self.dofs,1))
             cmdmsg.effort = self.gravity(self.curr_pos)
         else:
             # Update with respect to the current trajectory.
