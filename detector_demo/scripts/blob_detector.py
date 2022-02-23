@@ -134,5 +134,8 @@ class Detector:
 
 
 if __name__ == '__main__':
-    d = Detector(h_lims=(20, 40), s_lims=(80, 150), v_lims=(0, 255))
+    # Detects Light Blue color
+    d = Detector(h_lims=(100, 200), s_lims=(50, 250), v_lims=(50, 255))
     d.start()
+    
+

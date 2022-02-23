@@ -1,10 +1,17 @@
 <launch>
-  <param name = "_pixel_format" value="yuyv"/>
   <node
     name="usb_cam"
     pkg="usb_cam"
     type="usb_cam_node"
-    required="true" />
+    output="screen"
+    required="true" >
+
+    <param name="camera_name" value="logitech_cam_1"/>
+    <param name="pixel_format" value="yuyv"/>
+    <param name="image_width" value="1920"/>
+    <param name="image_height" value="1080"/>
+  </node>
+
 
   <node
     name="detector"

@@ -1,0 +1,13 @@
+<launch>
+
+
+  <node
+    name="detector2"
+    pkg="ME134"
+    type="aruco_table_mapping.py"
+    output="screen"
+    required="true" />
+
+  
+
+</launch>

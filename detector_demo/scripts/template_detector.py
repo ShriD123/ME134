@@ -22,6 +22,7 @@ class Detector:
     def __init__(self,
                  template_path='/home/me134/me134ws/src/detector_demo/templates/template.png',
                  thresh=0.5, detection_interval=None):
+        
         rospy.init_node('template_detector')
 
         # Import the template, make it grayscale, and record the width

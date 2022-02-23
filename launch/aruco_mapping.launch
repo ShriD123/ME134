@@ -13,12 +13,20 @@
   </node>
 
   <node
-    name="detector"
-    pkg="detector_demo"
-    type="template_detector.py"
+    name="detector2"
+    pkg="ME134"
+    type="aruco_table_mapping.py"
     output="screen"
     required="true" />
 
+
+  <node
+    name="detector"
+    pkg="ME134"
+    type="aruco_blob_tester.py"
+    output="screen"
+    required="true" />
+  
   <node
     name="display"
     pkg="detector_demo"
