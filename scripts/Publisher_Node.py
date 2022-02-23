@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 import rospy
 from std_msgs.msg import String
+from ME134.msg import array
 
 
 class Talker:
 
 	def __init__(self):
-		self.pub = rospy.Publisher('chatter', String)
+		self.pub = rospy.Publisher('chatter', array)
 		rate = rospy.Rate(10)
 		while not rospy.is_shutdown():
 			hello_str = 'hello world %s' % rospy.get_time()

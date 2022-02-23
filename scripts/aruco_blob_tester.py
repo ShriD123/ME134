@@ -13,6 +13,8 @@ import cv2
 from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
 from detector_demo.msg import SingleDetection, ManyDetections
+from sensor_msgs.msg import CameraInfo
+from ME134.msg import array
 #import imutils          # Just for testing/rotating image.
 
 class Detector:
@@ -28,6 +30,8 @@ class Detector:
         # TODO
         self.images_pub = rospy.Publisher(
             'detection_images_thresh', Image, queue_size=10)
+
+        self.ctr_pub = rospy.Publisher('aruco_center',array, queue_size=10)
 
         self.detections_msg = ManyDetections()
 
@@ -80,9 +84,14 @@ class Detector:
         if ids is None:
             return
         
+        # Array that holds the center location of 4 aruco markers
+        marker_id = np.zeros(5)
+        center_holder = np.zeros(10)
+
+        i = 0
+        j = 0
         # Loop over each marker: the list of corners and ID for this marker.
         for (markercorners, markerid) in zip(corners, ids.flatten()):
-
             # The corners are top-left, top-right, bottom-right, bottom-left.
             # Each is a 2x1 numpy array of pixel coordiantes.  Their type is
             # floating-point though they contain integer values.  NOTE
@@ -99,6 +108,9 @@ class Detector:
             br  = tuple(bottomRight.astype(int))
             ctr = tuple(center.astype(int))             # Center point
             txt = (tl[0], tl[1] - 15)                   # Where to write ID#
+            marker_id[j] = markerid
+            center_holder[i] = ctr[0]
+            center_holder[i+1] = ctr[1]
 
             # Pick the drawing colors.
             boxcolor    = (0, 255, 0)
@@ -119,11 +131,15 @@ class Detector:
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, textcolor, 2)
 
             print("ArUco marker ID:", markerid)
+            i = i + 2
+            j = j + 1
 
         # Show the output image
         # cv2.imshow("Processed Image", image)
         # Publish the resulting image (to be viewed by rqt_image_view)
         self.images_pub.publish(self.bridge.cv2_to_imgmsg(image, 'bgr8'))
+
+        self.ctr_pub.publish(marker_id, center_holder)
         # rospy.sleep(0.25)
         # cv2.waitKey(0)
     
