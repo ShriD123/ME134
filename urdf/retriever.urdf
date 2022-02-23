@@ -14,7 +14,7 @@
   <joint name="theta1" type="continuous">
     <parent link="world"/>
     <child  link="link1"/>
-    <origin xyz="0 0 0.085" rpy="0 0 0"/>
+    <origin xyz="0 0 0.04" rpy="0 0 0"/>
     <axis   xyz="0 0 1"/>
   </joint>
 
@@ -32,7 +32,7 @@
   <joint name="theta3" type="continuous">
     <parent link="link2"/>
     <child  link="link3"/>
-    <origin xyz="0 0.25 0" rpy="0 0 0"/>
+    <origin xyz="0 0.4064 0" rpy="0 0 0"/>
     <axis   xyz="-1 0 0"/>
   </joint>
 
@@ -86,7 +86,7 @@
       <geometry>
 	<box size="0.2 0.15 0.0127"/>
       </geometry>
-      <material name="table"/>
+      <material name="white"/>
     </visual>
   </link>
 
@@ -101,9 +101,9 @@
     <visual>
       <origin xyz="0 0 0.01" rpy="0 0 0"/>
       <geometry>
-	<cylinder length="0.02" radius="0.03"/>
+	<cylinder length="0.03" radius="0.03"/>
       </geometry>
-      <material name="gray"/>
+      <material name="red"/>
     </visual>
   </link>
 
@@ -116,9 +116,9 @@
 
   <link name="link1bar">
     <visual>
-      <origin xyz="0 0 -0.05" rpy="0 0 0"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-	<cylinder length="0.1" radius="0.01"/>
+	<cylinder length="0.0445" radius="0.01"/>
       </geometry>
       <material name="black"/>
     </visual>
@@ -152,9 +152,9 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 1.5708 0"/>
       <geometry>
-	<cylinder length="0.1" radius="0.02"/>
+	<cylinder length="0.045" radius="0.02"/>
       </geometry>
-      <material name="yellow"/>
+      <material name="red"/>
     </visual>
   </link>
 
@@ -167,11 +167,11 @@
 
   <link name="link2bar">
     <visual>
-      <origin xyz="0 0.125 0" rpy="-1.5708 0 0"/>
+      <origin xyz="0.045 0.2032 0" rpy="-1.5708 0 0"/>
       <geometry>
-	<cylinder length="0.25" radius="0.01"/>
+	<cylinder length="0.4064" radius="0.01"/>
       </geometry>
-      <material name="black"/>
+      <material name="white"/>
     </visual>
   </link>
 
@@ -201,11 +201,11 @@
 
   <link name="pitch2motor">
     <visual>
-      <origin xyz="0 0.25 0" rpy="0 1.5708 0"/>
+      <origin xyz="0 0.4064 0" rpy="0 1.5708 0"/>
       <geometry>
 	<cylinder length="0.1" radius="0.02"/>
       </geometry>
-      <material name="yellow"/>
+      <material name="red"/>
     </visual>
   </link>
 
@@ -218,11 +218,11 @@
 
   <link name="link3bar">
     <visual>
-      <origin xyz="0 0.1 0" rpy="-1.5708 0 0"/>
+      <origin xyz="0 0.2032 0" rpy="-1.5708 0 0"/>
       <geometry>
-	<cylinder length="0.2" radius="0.01"/>
+	<cylinder length="0.4064" radius="0.01"/>
       </geometry>
-      <material name="black"/>
+      <material name="white"/>
     </visual>
   </link>
 
@@ -245,16 +245,16 @@
 
   <!-- *** Tip Ball - attached to tip *** -->
 
-  <joint name="attach-tipball" type="fixed">
-    <parent link="tip"/>
-    <child  link="tipball"/>
+  <joint name="attach-pitch3motor" type="fixed">
+    <parent link="link3"/>
+    <child  link="pitch3motor"/>
   </joint>
 
-  <link name="tipball">
+  <link name="pitch3motor">
     <visual>
-      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <origin xyz="0 0.4064 0" rpy="0 1.5708 0"/>
       <geometry>
-      	<sphere radius="0.02"/>
+	<cylinder length="0.1" radius="0.02"/>
       </geometry>
       <material name="red"/>
     </visual>
