@@ -21,6 +21,7 @@ add_message_files(
 generate_messages(
   DEPENDENCIES
   std_msgs
+  geometry_msgs
   )
 
 ## Catkin configuration.  We don't have dependent projects.
