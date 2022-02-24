@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="utf-8"?>
+<robot
+  name="ThrowerAssem">
+  <link name="world"/>
+
+  <joint name="initial" type="fixed">
+    <parent   link="world"/>
+    <child    link="base_link"/>
+    <origin   xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+  <link
+    name="base_link">
+    <inertial>
+      <origin
+        xyz="0.0051267710101028 0.0127215128802038 -0.000528503954166201"
+        rpy="0 0 0" />
+      <mass
+        value="0.535648898210691" />
+      <inertia
+        ixx="0.00076712451970603"
+        ixy="-5.14044040712985E-08"
+        ixz="4.57501875352832E-06"
+        iyy="0.00210571129061903"
+        iyz="7.37057571159312E-08"
+        izz="0.00134839590254976" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://ME134/meshes/base_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://ME134/meshes/base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link
+    name="Transmission_Link">
+    <inertial>
+      <origin
+        xyz="-0.00923151634377413 0.0830736816010024 0.0228926658254896"
+        rpy="0 0 0" />
+      <mass
+        value="0.563828955662916" />
+      <inertia
+        ixx="0.000818270882011067"
+        ixy="-7.80695797391084E-05"
+        ixz="-9.79486309938041E-08"
+        iyy="0.000454795879043847"
+        iyz="-2.62045952627472E-06"
+        izz="0.00117620298209425" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://ME134/meshes/Transmission_Link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.752941176470588 0.752941176470588 0.752941176470588 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://ME134/meshes/Transmission_Link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="Pan"
+    type="continuous">
+    <origin
+      xyz="0.002 0 0.04375"
+      rpy="1.5708 0 0" />
+    <parent
+      link="base_link" />
+    <child
+      link="Transmission_Link" />
+    <axis
+      xyz="0 1 0" />
+  </joint>
+  <link
+    name="Arm">
+    <inertial>
+      <origin
+        xyz="-0.000955547440708304 -0.232556869769114 0.0454225953251871"
+        rpy="0 0 0" />
+      <mass
+        value="0.528520553412963" />
+      <inertia
+        ixx="0.00913331942642631"
+        ixy="-7.68410095250739E-06"
+        ixz="1.23665893255089E-10"
+        iyy="0.000167153525659923"
+        iyz="6.58584316649067E-11"
+        izz="0.00925672222624268" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://ME134/meshes/Arm.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.752941176470588 0.752941176470588 0.752941176470588 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://ME134/meshes/Arm.STL" />
+      </geometry>
+    </collision>
+  </link>
+
+
+  <joint
+    name="Tilt"
+    type="continuous">
+    <origin
+      xyz="0.01 0.16933 0.033115"
+      rpy="0 0 -1.5708" />
+    <parent
+      link="Transmission_Link" />
+    <child
+      link="Arm" />
+    <axis
+      xyz="0 0 1" />
+  </joint>
+  
+  <link name="Tip"/>
+  
+<!-- CHANGE THE VALUE HERE TO ADJUST POSITION OF SCOOP ORIGIN -->
+  <joint name="Scoop" type="fixed">
+  <origin
+      xyz="0.0 -0.529 0.0454"
+      rpy="0 0 0" />
+    <parent
+      link="Arm" />
+    <child
+      link="Tip" />
+   
+  </joint>
+  
+</robot>

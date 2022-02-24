@@ -1,0 +1,279 @@
+<?xml version="1.0" encoding="utf-8"?>
+<robot
+  name="ReceiveAssem">
+  <link name="world"/>
+
+  <joint name="initial" type="fixed">
+    <parent   link="world"/>
+    <child    link="base_link"/>
+    <origin   xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+  <link
+    name="base_link">
+    <inertial>
+      <origin
+        xyz="-0.0156821858181439 0.0137390852588391 -0.000423918809101779"
+        rpy="0 0 0" />
+      <mass
+        value="0.88972826890057" />
+      <inertia
+        ixx="0.00133366727960815"
+        ixy="2.48875903763923E-07"
+        ixz="6.68647343982052E-06"
+        iyy="0.00818153979986792"
+        iyz="8.0177671708705E-08"
+        izz="0.00687572672621421" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://ME134/meshes/Receive_base_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://ME134/meshes/base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link
+    name="LBracket">
+    <inertial>
+      <origin
+        xyz="-0.138982267417571 -4.82765100021151E-05 0.041902051263492"
+        rpy="0 0 0" />
+      <mass
+        value="0.449131531707174" />
+      <inertia
+        ixx="0.000414976886339391"
+        ixy="-3.72629678558012E-07"
+        ixz="7.83841354220244E-07"
+        iyy="0.000949279264762443"
+        iyz="6.58570583854253E-06"
+        izz="0.00104425607053717" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://ME134/meshes/LBracket.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://ME134/meshes/LBracket.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="Pan"
+    type="continuous">
+    <origin
+      xyz="-0.075 0 0.0577499999999999"
+      rpy="0 0 0" />
+    <parent
+      link="base_link" />
+    <child
+      link="LBracket" />
+    <axis
+      xyz="0 0 1" />
+  </joint>
+  <link
+    name="LowerArm">
+    <inertial>
+      <origin
+        xyz="0.244231330030986 -0.000432873058195922 -0.0373192262746434"
+        rpy="0 0 0" />
+      <mass
+        value="0.704246719676202" />
+      <inertia
+        ixx="0.00027812092063964"
+        ixy="-4.47049410922099E-06"
+        ixz="5.14044045276244E-08"
+        iyy="0.00818435738635304"
+        iyz="7.37057611621578E-08"
+        izz="0.0084516505241754" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://ME134/meshes/LowerArm.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1"  />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://ME134/meshes/LowerArm.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="Tilt"
+    type="continuous">
+    <origin
+      xyz="-0.0889 0 0.05135"
+      rpy="0 -1.5707963267949 3.14159265358979" />
+    <parent
+      link="LBracket" />
+    <child
+      link="LowerArm" />
+    <axis
+      xyz="0 0 1" />
+  </joint>
+  <link
+    name="UpperArm">
+    <inertial>
+      <origin
+        xyz="0.000432873095034228 0.244231331504682 0.0187307738889717"
+        rpy="0 0 0" />
+      <mass
+        value="0.704246725149444" />
+      <inertia
+        ixx="0.00818435739411322"
+        ixy="4.47049301479225E-06"
+        ixz="-7.37057537228614E-08"
+        iyy="0.000278120921303612"
+        iyz="5.14044504245634E-08"
+        izz="0.0084516505324836" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://ME134/meshes/UpperArm.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1"  />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://ME134/meshes/UpperArm.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="Elbow"
+    type="continuous">
+    <origin
+      xyz="0.4064 0 0"
+      rpy="0 0 -1.5707963267949" />
+    <parent
+      link="LowerArm" />
+    <child
+      link="UpperArm" />
+    <axis
+      xyz="0 0 1" />
+  </joint>
+  <link
+    name="GripperLBracket">
+    <inertial>
+      <origin
+        xyz="7.18164439028612E-09 0.0264128565137099 -0.025234395440306"
+        rpy="0 0 0" />
+      <mass
+        value="0.0444405224530501" />
+      <inertia
+        ixx="1.17897270827848E-05"
+        ixy="1.57155559763676E-12"
+        ixz="1.35987155714773E-12"
+        iyy="1.2693879765633E-05"
+        iyz="2.0016591535962E-06"
+        izz="1.13045280921722E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://ME134/meshes/GripperLBracket.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1"  />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://ME134/meshes/GripperLBracket.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="Wrist"
+    type="continuous">
+    <origin
+      xyz="0 0.4064 0.05605"
+      rpy="-3.14159265358979 0 3.14159265358979" />
+    <parent
+      link="UpperArm" />
+    <child
+      link="GripperLBracket" />
+    <axis
+      xyz="0 0 -1" />
+  </joint>
+  
+<!-- CHANGE THE VALUE HERE TO ADJUST TIP POSITION RELATIVE TO WRIST -->
+  <link name="Tip"/>
+  <joint
+    name="Gripper"
+    type="fixed">
+    <origin
+      xyz="0 0.1 -0.0325"
+      rpy="0 0 0" />
+    <parent
+      link="GripperLBracket" />
+    <child
+      link="Tip" />
+  </joint>
+    
+  
+</robot>
