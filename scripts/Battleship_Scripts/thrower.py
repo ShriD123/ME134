@@ -2,9 +2,17 @@
 
 import rospy
 import math
+
+import sys
+# Get path of parent directory for kinematics and splines import
+sys.path.insert(1, '/home/me134/me134ws/src/ME134/scripts')
+
 import kinematics as kin
 import numpy as np
-
+from sensor_msgs.msg   import JointState
+from std_msgs.msg import String
+from urdf_parser_py.urdf import Robot
+from ME134.msg import array
 from splines import CubicSpline, Goto, Hold, Stay, QuinticSpline, Goto5
 
 '''This code encapsulates the functionality for the thrower arm as well as its
@@ -63,7 +71,7 @@ class Trajectory:
     # Check the starting time of the current trajectory.
     #
     def start_time(self):
-        return self.curr_spline.start_time())
+        return self.curr_spline.start_time()
     
     #
     # Determine the pos and vel from current trajectory
@@ -83,22 +91,28 @@ class Thrower:
     #
     def __init__(self):
         # Collect the motor names, which defines the dofs (useful to know)
-        self.motors = ['Red/1', 'Red/2']
+        self.motors = ['Red/4', 'Red/5']
         self.dofs = len(self.motors)
         
         # Create a publisher to send the joint commands. 
         # TODO: When moving to battleship, will want to remove these
-        self.pub = rospy.Publisher("/joint_states", JointState, queue_size=5)
-        # self.pub = rospy.Publisher("/hebi/joint_commands", JointState, queue_size=5)
+        #self.pub = rospy.Publisher("/joint_states", JointState, queue_size=5)
+        self.pub = rospy.Publisher("/hebi/joint_commands", JointState, queue_size=5)
         rospy.sleep(0.25)
+
+        # Create subscribers for the general case and events.
+        self.sub = rospy.Subscriber('/hebi/joint_states', JointState, self.callback_actual, queue_size=5)
+        
         
         # # Find the starting positions. 
-        # msg = rospy.wait_for_message('/hebi/joint_states', JointState)
-        # for i in range(self.dofs):
-        #     if (msg.name[i] != self.motors[i]):
-        #         raise ValueError("Motor names don't match")
-        # self.pos_init = np.array(msg.position).reshape((self.dofs, 1))
-        self.pos_init = np.array([0.0, 0.0]).reshape((2, 1))
+        msg = rospy.wait_for_message('/hebi/joint_states', JointState)
+        for i in range(self.dofs):
+            if (msg.name[i] != self.motors[i]):
+                raise ValueError("Motor names don't match")
+        self.pos_init = np.array(msg.position).reshape((self.dofs, 1))
+        #self.pos_init = np.array([0.0, 0.0]).reshape((2, 1))
+
+        self.callback_actual(msg)
 
         # TODO: Create the necessary subscribers for the general case and events.
         # self.sub = rospy.Subscriber('/actual', JointState, self.callback_actual)
@@ -125,12 +139,23 @@ class Thrower:
         self.trajectory = Trajectory([Goto5(self.curr_t, self.pos_init, self.START, self.TRAJ_TIME)])
 
         # Initialize the gravity parameters TODO: Tune and test these parameters for our 2DOF
-        self.grav_A = 0.0
-        self.grav_B = 0.0
 
+        # For a 3.33 gear ratio, A = 0, B = 3.27, B_hackysack = 1.04
+        # For a 2.5 gear ratio, 
+        self.grav_A = 0.0
+        self.grav_B = 3.27
+
+        # Addition to gravity term due to hackysack
+        self.grav_B_hackysack = 1.04
+
+        # If we want to float the arm
+        self.float = True
+
+        # GEAR RATIO!
+        self.gearratio = 3.33
+        
         # Initialize any helpful global variables
         self.is_waiting = False
-        
     #
     # Update every 10ms!
     #
@@ -146,37 +171,46 @@ class Thrower:
         # cmdmsg.velocity = np.array([nan, nan, nan]).reshape((3,1))
         # cmdmsg.effort = self.gravity(self.curr_pos)
 
-        # If the current segment is done, shift to the next.
-        if (t-self.trajectory.start_time()) >= self.trajectory.duration():
-            if self.trajectory.is_empty():
-                self.is_waiting = True
-            else:
-                self.trajectory.pop_spline()
-
-        if self.is_waiting:
-            # Make the arm float in the starting position if just waiting.
-            cmdmsg.position = self.START
-            cmdmsg.velocity = np.array([0.0, 0.0]).reshape((2, 1))
-            cmdmsg.effort = self.gravity(self.curr_pos)
+        # CODE FOR TESTING FLOAT
+        if self.float:
+            # Set q_des = q_actual to make the arm "float"
+            nan = float('nan')
+            cmdmsg.position = np.array([nan, nan]).reshape((2,1))
+            cmdmsg.velocity = np.array([nan, nan]).reshape((2,1))
+            cmdmsg.effort = self.gravity(self.curr_pos, hackysack=True)
+        
         else:
-            # Update with respect to the current trajectory.
-            if (self.trajectory.traj_space() == 'Joint'):
-                (cmdmsg.position, cmdmsg.velocity) = self.trajectory.update(t)
-                
-            elif (self.trajectory.traj_space() == 'Task'):
-                # TODO: Update for a 2DOF Arm... Admittedly, we could just bypass this by never needing this.
-                # TODO: Consider if we even need this set of code... Right now it will fail, but do we need task space?
-                (x, xdot) = self.trajectory.update(t)
-                cart_pos = np.array(x).reshape((self.dofs,1))
-                cart_vel = np.array(xdot).reshape((self.dofs,1))
-                
-                cmdmsg.position = self.kin.ikin(cart_pos, self.curr_pos)
-                (T, J) = self.kin.fkin(cmdmsg.position)
-                cmdmsg.velocity = np.linalg.inv(J[0:3,0:3]) @ cart_vel
-            else:
-                raise ValueError('Unknown Spline Type')
+            # If the current segment is done, shift to the next.
+            if (t-self.trajectory.start_time()) >= self.trajectory.duration():
+                if self.trajectory.is_empty():
+                    self.is_waiting = True
+                else:
+                    self.trajectory.pop_spline()
 
-            cmdmsg.effort = self.gravity(self.curr_pos)
+            if self.is_waiting:
+                # Make the arm float in the starting position if just waiting.
+                cmdmsg.position = self.START
+                cmdmsg.velocity = np.array([0.0, 0.0]).reshape((2, 1))
+                cmdmsg.effort = self.gravity(self.curr_pos)
+            else:
+                # Update with respect to the current trajectory.
+                if (self.trajectory.traj_space() == 'Joint'):
+                    (cmdmsg.position, cmdmsg.velocity) = self.trajectory.update(t)
+                    
+                elif (self.trajectory.traj_space() == 'Task'):
+                    # TODO: Update for a 2DOF Arm... Admittedly, we could just bypass this by never needing this.
+                    # TODO: Consider if we even need this set of code... Right now it will fail, but do we need task space?
+                    (x, xdot) = self.trajectory.update(t)
+                    cart_pos = np.array(x).reshape((self.dofs,1))
+                    cart_vel = np.array(xdot).reshape((self.dofs,1))
+                    
+                    cmdmsg.position = self.kin.ikin(cart_pos, self.curr_pos)
+                    (T, J) = self.kin.fkin(cmdmsg.position)
+                    cmdmsg.velocity = np.linalg.inv(J[0:3,0:3]) @ cart_vel
+                else:
+                    raise ValueError('Unknown Spline Type')
+
+                cmdmsg.effort = self.gravity(self.curr_pos)
 
         # Store the command message
         self.curr_pos = cmdmsg.position
@@ -187,13 +221,25 @@ class Thrower:
         # Send the command (with the current time).
         cmdmsg.header.stamp = rospy.Time.now()
         self.pub.publish(cmdmsg)
-        
+    
+    # Callback Function to set the positions based off the actual values
+    def callback_actual(self, msg):
+        self.curr_pos = msg.position
+        self.curr_vel = msg.velocity
+
     #
     # Gravity Compensation Function
     #
-    def gravity(self, pos):
-        theta_1 = pos[1]
-        tau = self.grav_A * math.sin(theta_1) + self.grav_B * math.cos(theta_1)
+    def gravity(self, pos, hackysack=False):
+        # If a hackysack is loaded, add adjustment value to gravity parameter
+        if hackysack:
+            grav_B_term = self.grav_B + self.grav_B_hackysack
+        # Otherwise use as is
+        else:
+            grav_B_term = self.grav_B
+
+        theta_1 = pos[1] * self.gearratio
+        tau = self.grav_A * math.sin(theta_1) + grav_B_term * math.cos(theta_1)
         return np.array([0, tau]).reshape((self.dofs,1)) 
 
     #
@@ -202,6 +248,7 @@ class Thrower:
     def compute_spline(self, target):
         #TODO: To be implemented with a fit to a model.
         # For now, we will just use kinematic equations (once testing of arm is complete)
+        pass
 
         # Note: Add self.TRAJ_TIME to t0 for this spline. Also implement it as a quintic spline that speeds through launch and ends at rest.
 

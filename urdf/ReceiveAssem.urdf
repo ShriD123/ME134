@@ -262,7 +262,7 @@
   </joint>
   
 <!-- CHANGE THE VALUE HERE TO ADJUST TIP POSITION RELATIVE TO WRIST -->
-  <link name="Tip"/>
+  <link name="tip"/>
   <joint
     name="Gripper"
     type="fixed">
@@ -272,7 +272,7 @@
     <parent
       link="GripperLBracket" />
     <child
-      link="Tip" />
+      link="tip" />
   </joint>
     
   

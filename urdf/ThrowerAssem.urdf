@@ -152,23 +152,23 @@
     <parent
       link="Transmission_Link" />
     <child
-      link="Arm" />
+      link="tip" />
     <axis
       xyz="0 0 1" />
   </joint>
   
-  <link name="Tip"/>
+  <link name="tip"/>
   
 <!-- CHANGE THE VALUE HERE TO ADJUST POSITION OF SCOOP ORIGIN -->
-  <joint name="Scoop" type="fixed">
+  <joint name="scoop" type="fixed">
   <origin
       xyz="0.0 -0.529 0.0454"
       rpy="0 0 0" />
     <parent
       link="Arm" />
     <child
-      link="Tip" />
+      link="tip" />
    
   </joint>
-  
+
 </robot>

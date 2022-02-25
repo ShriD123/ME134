@@ -2,8 +2,15 @@
 
 import rospy
 import math
+import sys
+# Get path of parent directory for kinematics and splines import
+sys.path.insert(1, '/home/me134/me134ws/src/ME134/scripts')
 import kinematics as kin
-import splines
+from sensor_msgs.msg   import JointState
+from std_msgs.msg import String
+from urdf_parser_py.urdf import Robot
+from ME134.msg import array
+from splines import CubicSpline, Goto, Hold, Stay, QuinticSpline, Goto5
 import numpy as np
 
 '''This code encapsulates the functionality for the receiver arm as well as its
@@ -62,7 +69,7 @@ class Trajectory:
     # Check the starting time of the current trajectory.
     #
     def start_time(self):
-        return self.curr_spline.start_time())
+        return self.curr_spline.start_time()
     
     #
     # Determine the pos and vel from current trajectory
@@ -82,27 +89,34 @@ class Receiver:
     #
     def __init__(self):
         # Collect the motor names, which defines the dofs (useful to know)
-        self.motors = ['Red/1', 'Red/2', 'Red/3', 'Red/4']
+        # NOTE: using red/3 because our pan motor is failed. Should be Red/1
+        self.motors = ['Red/3', 'Red/6', 'Red/1', 'Red/2']
         self.dofs = len(self.motors)
         
         # Create a publisher to send the joint commands. 
         # TODO: When moving to battleship, will want to remove these
-        self.pub = rospy.Publisher("/joint_states", JointState, queue_size=5)
-        # self.pub = rospy.Publisher("/hebi/joint_commands", JointState, queue_size=5)
+        #self.pub = rospy.Publisher("/joint_states", JointState, queue_size=5)
+        self.pub = rospy.Publisher("/hebi/joint_commands", JointState, queue_size=5)
         rospy.sleep(0.25)
         
+        # Create subscribers for the general case and events.
+        self.sub = rospy.Subscriber('/hebi/joint_states', JointState, self.callback_actual, queue_size=5)
+        
+
         # # Find the starting positions. 
-        # msg = rospy.wait_for_message('/hebi/joint_states', JointState)
-        # for i in range(self.dofs):
-        #     if (msg.name[i] != self.motors[i]):
-        #         raise ValueError("Motor names don't match")
-        # self.pos_init = np.array(msg.position).reshape((self.dofs, 1))
-        self.pos_init = np.array([0.0, 0.0, 0.0, 0.0]).reshape((4, 1))
+        msg = rospy.wait_for_message('/hebi/joint_states', JointState)
+        for i in range(self.dofs):
+            if (msg.name[i] != self.motors[i]):
+                raise ValueError("Motor names don't match")
+        self.pos_init = np.array(msg.position).reshape((self.dofs, 1))
+        #self.pos_init = np.array([0.0, 0.0, 0.0, 0.0]).reshape((4, 1))
+
+        self.callback_actual(msg)
 
         # TODO: Create the necessary subscribers for the general case and events.
         # self.sub = rospy.Subscriber('/actual', JointState, self.callback_actual)
         # self.sub_e = rospy.Subscriber('/event', String, self.callback_event)
-        self.sub_hackysack = rospy.Subscriber('/force_sensor', JointState, self.callback_hackysack)
+        #self.sub_hackysack = rospy.Subscriber('/force_sensor', JointState, self.callback_hackysack)
         
         # Grab the robot's URDF from the parameter server.
         # Might have to change this because we'll have multiple URDFs
@@ -123,10 +137,13 @@ class Receiver:
         self.trajectory = Trajectory([Goto5(self.curr_t, self.pos_init, self.START, self.TRAJ_TIME)])
 
         # Initialize the gravity parameters TODO: Tune and test these parameters for our 4DOF
-        self.grav_A = 0.0
-        self.grav_B = 0.0
+        self.grav_A = 0.20
+        self.grav_B = 4.70
         self.grav_C = 0.0
-        self.grav_D = 0.0
+        self.grav_D = 6.0
+
+        # If we want to float the arm for testing
+        self.float = True
 
         # Initialize any helpful global variables
         self.is_waiting = False
@@ -139,37 +156,41 @@ class Receiver:
         cmdmsg = JointState()
         cmdmsg.name = self.motors
 
-        # # TODO: Code for tuning gravity... Delete when completed tuning.
-        # # Set q_des = q_actual to make the arm "float"
-        # nan = float('nan')
-        # cmdmsg.position = np.array([nan, nan, nan]).reshape((3,1))
-        # cmdmsg.velocity = np.array([nan, nan, nan]).reshape((3,1))
-        # cmdmsg.effort = self.gravity(self.curr_pos)
+        # CODE FOR TESTING FLOAT
+        if self.float:
+            # Set q_des = q_actual to make the arm "float"
+            nan = float('nan')
+            cmdmsg.position = np.array([nan, nan, nan, nan]).reshape((4,1))
+            cmdmsg.velocity = np.array([nan, nan, nan, nan]).reshape((4,1))
+            cmdmsg.effort = self.gravity(self.curr_pos)
         
-        # Determine which trajectory and implement functionality
-        if (self.trajectory.traj_space() == 'Joint'):
-            (cmdmsg.position, cmdmsg.velocity) = self.trajectory.update(t)
-              
-        elif (self.trajectory.traj_space() == 'Task'):
-            # TODO: Need to update to account for 4DOF
-            (x, xdot) = self.trajectory.update(t)
-            cart_pos = np.array(x).reshape((3,1))
-            cart_vel = np.array(xdot).reshape((3,1))
-            
-            cmdmsg.position = self.kin.ikin(cart_pos, self.curr_pos)
-            (T, J) = self.kin.fkin(cmdmsg.position)
-            cmdmsg.velocity = np.linalg.inv(J[0:3,0:3]) @ cart_vel
         else:
-            raise ValueError('Unknown Spline Type')
+            # Determine which trajectory and implement functionality
+            if (self.trajectory.traj_space() == 'Joint'):
+                (cmdmsg.position, cmdmsg.velocity) = self.trajectory.update(t)
+                
+            elif (self.trajectory.traj_space() == 'Task'):
+                # TODO: Need to update to account for 4DOF
+                (x, xdot) = self.trajectory.update(t)
+                cart_pos = np.array(x).reshape((3,1))
+                cart_vel = np.array(xdot).reshape((3,1))
+                
+                cmdmsg.position = self.kin.ikin(cart_pos, self.curr_pos)
+                (T, J) = self.kin.fkin(cmdmsg.position)
+                cmdmsg.velocity = np.linalg.inv(J[0:3,0:3]) @ cart_vel
+            else:
+                raise ValueError('Unknown Spline Type')
             
         # TODO: Implement Gravity Compensation Function for 4DOF
-        cmdmsg.effort = self.gravity(self.curr_pos)
+        #cmdmsg.effort = self.gravity(self.curr_pos)
 
         # Store the command message
         self.curr_pos = cmdmsg.position
         self.curr_vel = cmdmsg.velocity
         self.curr_accel = cmdmsg.effort
         self.curr_t = t
+
+
 
         # Send the command (with the current time).
         cmdmsg.header.stamp = rospy.Time.now()
@@ -191,7 +212,8 @@ class Receiver:
     #
     def callback_actual(self, msg):
         # TODO: See what you may need this callback function for.
-        rospy.loginfo('I heard %s', msg)
+        self.curr_pos = msg.position
+        self.curr_vel = msg.velocity
        
     #
     # Callback Function for the Error Sensing
