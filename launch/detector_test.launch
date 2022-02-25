@@ -10,15 +10,13 @@
     <param name="pixel_format" value="yuyv"/>
     <param name="image_width" value="1920"/>
     <param name="image_height" value="1080"/>
+  </node>
 
-    
-    
-   </node>
 
   <node
     name="detector"
-    pkg="detector_demo"
-    type="blob_detector.py"
+    pkg="ME134"
+    type="detector.py"
     output="screen"
     required="true" />
   

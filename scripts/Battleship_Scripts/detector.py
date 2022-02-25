@@ -3,7 +3,6 @@
 from multiprocessing.sharedctypes import Value
 import rospy
 import math
-import kinematics as kin
 import numpy as np
 import cv2
 from cv_bridge import CvBridge
@@ -34,13 +33,10 @@ class Helper:
 #
 class Detector:
 
-    #TODO: Adjust the following code for our purposes.
-    #TODO: Add calibration 
-
     #
     # Initialize.
     #
-    def __init__(self, detection_interval=None):
+    def __init__(self,h_lims, s_lims=None, v_lims=None,detection_interval=None):
         rospy.init_node('aruco_detector')
 
         # Grab an instance of the camera data with predetermined calibration.
@@ -60,22 +56,34 @@ class Detector:
 
         # Arrays that hold the center location and ids of 4 aruco markers
         self.marker_id = np.zeros(4)
-        self.center_holder = np.zeros(8)
+        self.center_values = np.zeros(8)
         
         # Prepare the detection publisher and detection message.
         # See Msg/SingleDetection.msg and Msg/ManyDetections.msg for details.
-        # self.detections_pub = rospy.Publisher(
-        #     'detections', ManyDetections, queue_size=10)
+        self.detections_pub = rospy.Publisher('detections', ManyDetections, queue_size=10)
 
         # # TODO
-        # self.images_pub = rospy.Publisher(
-        #     'detection_images_thresh', Image, queue_size=10)
+        self.images_pub = rospy.Publisher(
+            'detection_images_thresh', Image, queue_size=10)
 
-        # self.detections_msg = ManyDetections()
+        self.detections_msg = ManyDetections()
 
         # Prepare OpenCV bridge used to translate ROS Image message to OpenCV
         # image array.
         self.bridge = CvBridge()
+
+        # Set detector parameters.
+        upper_lims = []
+        lower_lims = []
+        for lim in [h_lims, s_lims, v_lims]:
+            if lim is not None:
+                lower_lims.append(lim[0])
+                upper_lims.append(lim[1])
+            else:
+                lower_lims.append(0)
+                upper_lims.append(255)
+        self.upper_lims = tuple(upper_lims)
+        self.lower_lims = tuple(lower_lims)
 
         self.detection_interval = detection_interval
         self.last_detection = rospy.Time.now()
@@ -97,7 +105,7 @@ class Detector:
         self.last_detection = rospy.Time.now()
 
         # Convert ROS Image message to OpenCV image array.
-        image = self.bridge.imgmsg_to_cv2(data, 'bgr8')
+        self.image = self.bridge.imgmsg_to_cv2(data, 'bgr8')
         
         # Convert BGR image to HSV.
         #hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -119,7 +127,7 @@ class Detector:
         params = cv2.aruco.DetectorParameters_create()
 
         # Detect.
-        (corners, ids, rejected) = cv2.aruco.detectMarkers(image, dict_aruco, parameters=params)
+        (corners, ids, rejected) = cv2.aruco.detectMarkers(self.image, dict_aruco, parameters=params)
         print(corners)
         print(ids)
         
@@ -151,8 +159,8 @@ class Detector:
             ctr = tuple(center.astype(int))             # Center point
             txt = (tl[0], tl[1] - 15)                   # Where to write ID#
             self.marker_id[j] = markerid
-            self.center_holder[i] = ctr[0]
-            self.center_holder[i+1] = ctr[1]
+            self.center_values[i] = ctr[0]
+            self.center_values[i+1] = ctr[1]
 
             # Pick the drawing colors.
             boxcolor    = (0, 255, 0)
@@ -160,16 +168,16 @@ class Detector:
             textcolor   = (0, 255, 0)
 
             # Draw the bounding box
-            cv2.line(image, tl, tr, boxcolor, 2)
-            cv2.line(image, tr, br, boxcolor, 2)
-            cv2.line(image, br, bl, boxcolor, 2)
-            cv2.line(image, bl, tl, boxcolor, 2)
+            cv2.line(self.image, tl, tr, boxcolor, 2)
+            cv2.line(self.image, tr, br, boxcolor, 2)
+            cv2.line(self.image, br, bl, boxcolor, 2)
+            cv2.line(self.image, bl, tl, boxcolor, 2)
 
             # Draw the center circle
-            cv2.circle(image, ctr, 4, circlecolor, -1)
+            cv2.circle(self.image, ctr, 4, circlecolor, -1)
 
             # Print the ArUco marker ID on the image
-            cv2.putText(image, str(markerid), txt,
+            cv2.putText(self.image, str(markerid), txt,
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, textcolor, 2)
 
             print("ArUco marker ID:", markerid)
@@ -179,7 +187,7 @@ class Detector:
         # Show the output image
         # cv2.imshow("Processed Image", image)
         # Publish the resulting image (to be viewed by rqt_image_view)
-        self.images_pub.publish(self.bridge.cv2_to_imgmsg(image, 'bgr8'))
+        self.images_pub.publish(self.bridge.cv2_to_imgmsg(self.image, 'bgr8'))
         # rospy.sleep(0.25)
         # cv2.waitKey(0)
     
@@ -192,8 +200,8 @@ class Detector:
         self.aruco_detect(data)
 
         # Close to thrower, far from receiver
-        coord = np.array([[0,1],[2,3],[4,5],[6,7],[8,9]])
-        for i in [0,1,2,3,4]:
+        coord = np.array([[0,1],[2,3],[4,5],[6,7]])
+        for i in [0,1,2,3]:
             if self.marker_id[i] == 0:
                 p0 = (0, 0)
                 a0 = (self.center_values[coord[i,0]], self.center_values[coord[i,1]])
@@ -220,11 +228,11 @@ class Detector:
         # TODO implement blob detection here
         sack_loc = self.sack_detector(data)
 
-
+ 
         pixels = np.float32([[sack_loc[0],sack_loc[1]]])
         coords = cv2.undistortPoints(pixels, self.camK, self.camD)
         points = cv2.perspectiveTransform(coords, self.M)
-        return points[0,0,:]
+        rospy.loginfo(points[0,0,:])
 
 
     def sack_detector(self, data):
@@ -237,10 +245,10 @@ class Detector:
         self.last_detection = rospy.Time.now()
 
         # Convert ROS Image message to OpenCV image array.
-        img = self.bridge.imgmsg_to_cv2(data, 'bgr8')
+        #img = self.bridge.imgmsg_to_cv2(data, 'bgr8')
 
         # Convert BGR image to HSV.
-        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+        hsv = cv2.cvtColor(self.image, cv2.COLOR_BGR2HSV)
 
         # Threshold the HSV image by the max/min Hue, Saturation, Value given.
         # Be careful with Hue as it wraps around!
@@ -254,8 +262,8 @@ class Detector:
 
         # Remove noise from the image via erosion/dilation.
         kernel = np.ones((3, 3), np.uint8)
-        thresh = cv2.erode(thresh, kernel, iterations=5)
-        thresh = cv2.dilate(thresh, kernel, iterations=5)
+        thresh = cv2.erode(thresh, kernel, iterations=6)
+        thresh = cv2.dilate(thresh, kernel, iterations=10)
         
         # Publish the image viewed by the camera
         self.images_pub.publish(self.bridge.cv2_to_imgmsg(thresh, 'mono8'))
@@ -324,5 +332,5 @@ class Detector:
 #  Main Code for Detector Only
 #
 if __name__ == '__main__':
-    d = Detector()
+    d = Detector(h_lims=(100, 200), s_lims=(120, 230), v_lims=(120, 230))
     d.start()
