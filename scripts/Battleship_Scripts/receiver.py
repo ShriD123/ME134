@@ -89,8 +89,7 @@ class Receiver:
     #
     def __init__(self):
         # Collect the motor names, which defines the dofs (useful to know)
-        # NOTE: using red/3 because our pan motor is failed. Should be Red/1
-        self.motors = ['Red/3', 'Red/6', 'Red/1', 'Red/2']
+        self.motors = ['Red/7', 'Red/6', 'Red/1', 'Red/2']
         self.dofs = len(self.motors)
         
         # Create a publisher to send the joint commands. 
@@ -138,9 +137,9 @@ class Receiver:
 
         # Initialize the gravity parameters TODO: Tune and test these parameters for our 4DOF
         self.grav_A = 0.20
-        self.grav_B = 4.70
+        self.grav_B = 4.90
         self.grav_C = 0.0
-        self.grav_D = 6.0
+        self.grav_D = 5.8
 
         # If we want to float the arm for testing
         self.float = True
