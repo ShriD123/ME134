@@ -5,7 +5,7 @@ import math
 
 import sys
 # Get path of parent directory for kinematics and splines import
-sys.path.insert(1, '/home/robot/133ws/src/ME134/scripts')
+sys.path.insert(1, '/home/me134/me134ws/src/ME134/scripts')
 
 import kinematics as kin
 import numpy as np
@@ -146,12 +146,16 @@ class Thrower:
 
         # MOVE FROM INITIAL TO START (LOADING) POSITION
         self.START = np.array([0.0, 0.0]).reshape((2, 1))
-        self.TRAVEL_TIME = 5.0
+        self.TRAVEL_TIME = 3.0
+
+        # HOLD
+        self.HOLD_TIME = 1.0
         
         # LAUNCH THE PROJECTILE
         
-        self.exit_velocity = 1.0 # Exit velocity in Radians per second (Velocity of HEBI motor)
-        self.release_point = np.pi/2 # Where projectile is released (Position of HEBI motor)
+        # CHANGE THE EXIT VELOCITY HERE!
+        self.exit_velocity = 1.92 # Exit velocity in Radians per second (Velocity of HEBI motor)
+        self.release_point = np.pi/4.7 # Where projectile is released (Position of HEBI motor)
         
         # Point of release
         self.LAUNCH = np.array([0.0, self.release_point]).reshape((2, 1))
@@ -160,29 +164,32 @@ class Thrower:
         self.LAUNCH_TIME = 2.0*self.release_point / self.exit_velocity
         
         # Velocity at release
-        self.launch_vel = np.array([0.0, 1.0]).reshape((2, 1))
+        self.launch_vel = np.array([0.0, self.exit_velocity]).reshape((2, 1))
         self.launch_accel = np.array([0.0, 0.0]).reshape((2, 1))
         
         # STOPPING THE ARM AFTER LAUNCH
-        self.STOP_TIME = 0.5
-        self.FINAL = np.array([0.0, 2.0]).reshape((2, 1))
+
+        self.stop_point = self.release_point*1.3
+        self.STOP_TIME = 2*(self.stop_point-self.release_point) / self.exit_velocity
+        self.FINAL = np.array([0.0, self.stop_point]).reshape((2, 1))
         self.final_vel = np.array([0.0, 0.0]).reshape((2, 1))
         self.final_accel = np.array([0.0, 0.0]).reshape((2, 1))
         
         self.trajectory = Trajectory([Goto5(self.curr_t, self.pos_init, self.START, self.TRAVEL_TIME), 
-        QuinticSpline(self.curr_t+self.TRAVEL_TIME, self.START, self.curr_vel, self.curr_accel, self.LAUNCH, self.launch_vel, self.launch_accel, self.LAUNCH_TIME),
-        QuinticSpline(self.curr_t+self.TRAVEL_TIME+self.LAUNCH_TIME, self.LAUNCH, self.launch_vel, self.launch_accel, self.FINAL, self.final_vel, self.final_accel, self.STOP_TIME),
-        Goto5(self.curr_t+self.TRAVEL_TIME+self.LAUNCH_TIME+self.STOP_TIME, self.FINAL, self.START, self.TRAVEL_TIME)])
+        Goto5(self.curr_t+self.TRAVEL_TIME, self.START, self.START, self.HOLD_TIME),
+        QuinticSpline(self.curr_t+self.TRAVEL_TIME+self.HOLD_TIME, self.START, self.curr_vel, self.curr_accel, self.LAUNCH, self.launch_vel, self.launch_accel, self.LAUNCH_TIME),
+        QuinticSpline(self.curr_t+self.TRAVEL_TIME+self.HOLD_TIME+self.LAUNCH_TIME, self.LAUNCH, self.launch_vel, self.launch_accel, self.FINAL, self.final_vel, self.final_accel, self.STOP_TIME),
+        Goto5(self.curr_t+self.TRAVEL_TIME+self.HOLD_TIME+self.LAUNCH_TIME+self.STOP_TIME, self.FINAL, self.START, self.TRAVEL_TIME)])
 
         # Initialize the gravity parameters
 
         # For a 3.33 gear ratio, A = 0, B = 3.27, B_hackysack = 1.04
         # For a 2:1 gear ratio, theoretically B = 1.96, B_hackysack = 0.624
         self.grav_A = 0.0
-        self.grav_B = 3.27
+        self.grav_B = 1.96
 
         # Addition to gravity term due to hackysack
-        self.grav_B_hackysack = 1.04
+        self.grav_B_hackysack = 0.624
 
         # If we want to float the arm
         self.float = False
@@ -241,6 +248,7 @@ class Thrower:
         # Send the command (with the current time).
         cmdmsg.header.stamp = rospy.Time.now()
         self.pub.publish(cmdmsg)
+
         
 
     
