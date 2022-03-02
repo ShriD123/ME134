@@ -233,6 +233,7 @@ class Detector:
         coords = cv2.undistortPoints(pixels, self.camK, self.camD)
         points = cv2.perspectiveTransform(coords, self.M)
         rospy.loginfo(points[0,0,:])
+        return points[0,0,:]
 
 
     def sack_detector(self, data):

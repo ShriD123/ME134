@@ -4,7 +4,6 @@ import rospy
 import math
 
 import sys
-# Get path of parent directory for kinematics and splines import
 sys.path.insert(1, '/home/me134/me134ws/src/ME134/scripts')
 
 import kinematics as kin

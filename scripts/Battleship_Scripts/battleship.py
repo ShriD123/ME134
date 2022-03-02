@@ -7,7 +7,8 @@ import numpy as np
 
 from detector import Detector
 from receiver import Receiver
-from thrower import Thrower
+# from thrower import Thrower           TODO: Move changes over to compute spline later
+from thrower_test import Thrower
 from visualize_battle import Visualization
 from algorithm import Bayes
 

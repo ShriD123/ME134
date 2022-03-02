@@ -3,9 +3,9 @@
 import rospy
 import math
 import sys
-# Get path of parent directory for kinematics and splines import
 sys.path.insert(1, '/home/me134/me134ws/src/ME134/scripts')
 import kinematics as kin
+from detector import Detector
 from sensor_msgs.msg   import JointState
 from std_msgs.msg import String
 from urdf_parser_py.urdf import Robot
@@ -89,14 +89,14 @@ class Receiver:
     #
     def __init__(self):
         # Collect the motor names, which defines the dofs (useful to know)
-        self.motors = ['Red/7', 'Red/6', 'Red/1', 'Red/2']
+        self.motors = ['Red/7', 'Red/6', 'Red/1', 'Red/2', 'Red/3']
         self.dofs = len(self.motors)
         
         # Create a publisher to send the joint commands. 
         # TODO: When moving to battleship, will want to remove these
         #self.pub = rospy.Publisher("/joint_states", JointState, queue_size=5)
-        self.pub = rospy.Publisher("/hebi/joint_commands", JointState, queue_size=5)
-        rospy.sleep(0.25)
+        # self.pub = rospy.Publisher("/hebi/joint_commands", JointState, queue_size=5)
+        # rospy.sleep(0.25)
         
         # Create subscribers for the general case and events.
         self.sub = rospy.Subscriber('/hebi/joint_states', JointState, self.callback_actual, queue_size=5)
@@ -126,7 +126,7 @@ class Receiver:
 
         # Initialize the state of the robot
         self.curr_pos = self.pos_init
-        self.curr_vel = np.array([0.0, 0.0, 0.0, 0.0]).reshape((4, 1))
+        self.curr_vel = np.array([0.0, 0.0, 0.0, 0.0]).reshape((4, 1))  
         self.curr_t = 0.0
         self.curr_accel = np.array([0.0, 0.0, 0.0, 0.0]).reshape((4, 1))
     
@@ -134,6 +134,7 @@ class Receiver:
         self.START = np.array([np.pi/2, 0.0, 0.0, 0.0]).reshape((4, 1))
         self.TRAJ_TIME = 5.0        
         self.trajectory = Trajectory([Goto5(self.curr_t, self.pos_init, self.START, self.TRAJ_TIME)])
+        self.grasp = 0      # 0 is ungrasped, 1 is grasped
 
         # Initialize the gravity parameters TODO: Tune and test these parameters for our 4DOF
         self.grav_A = 0.20
@@ -143,6 +144,15 @@ class Receiver:
 
         # If we want to float the arm for testing
         self.float = True
+
+
+        # Initialize the trajectories that we want for the loop
+        hackysack_pos = FROM DETECTOR GET THAT POSITION
+        self.trajectory.add_spline(DROP HACKYSACK)
+        self.trajectory.add_spline(CURR POS TO THROWER START)
+        self.trajectory.add_spline(HACKYSACK + Z)
+        self.trajectory(GRASP HACKYSACK - Z)
+        self.trajectory.add_spline(CURR POS TO HACKYSACK + Z)
 
         # Initialize any helpful global variables
         self.is_waiting = False
@@ -174,9 +184,9 @@ class Receiver:
                 cart_pos = np.array(x).reshape((3,1))
                 cart_vel = np.array(xdot).reshape((3,1))
                 
-                cmdmsg.position = self.kin.ikin(cart_pos, self.curr_pos)
+                this_pos = self.kin.ikin(cart_pos, self.curr_pos)
                 (T, J) = self.kin.fkin(cmdmsg.position)
-                cmdmsg.velocity = np.linalg.inv(J[0:3,0:3]) @ cart_vel
+                this_vel = np.linalg.inv(J[0:3,0:3]) @ cart_vel
             else:
                 raise ValueError('Unknown Spline Type')
             
@@ -186,7 +196,7 @@ class Receiver:
 
 
         # TODO: Implement Gravity Compensation Function for 4DOF
-        #cmdmsg.effort = self.gravity(self.curr_pos)
+        cmdmsg.effort = self.gravity(self.curr_pos)
 
         # Store the command message
         self.curr_pos = cmdmsg.position
@@ -204,7 +214,6 @@ class Receiver:
     # Gravity Compensation Function
     #
     def gravity(self, pos):
-        # TODO: Need to update to account for 4DOF... Do we need an additional variable for the wrist?
         theta_1 = pos[1]; theta_2 = pos[2]
         tau2 = self.grav_A * math.sin(theta_1 + theta_2) + self.grav_B * math.cos(theta_1 + theta_2)
         tau1 = self.grav_C * math.sin(theta_1) + self.grav_D * math.cos(theta_1) + tau2
