@@ -182,7 +182,7 @@ class Receiver:
             
         # Print xyz location
         (T, J) = self.kin.fkin(self.curr_pos)
-        print(T)
+        print(kin.p_from_T(T))
 
 
         # TODO: Implement Gravity Compensation Function for 4DOF

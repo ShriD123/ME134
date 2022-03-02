@@ -191,14 +191,14 @@ class Kinematics:
         # Newton-Raphson algorithm
         theta = theta_guess
         (T, J) = self.fkin(theta)
-        Jinv = np.linalg.inv(J[0:3, 0:3])
+        Jinv = np.linalg.pinv(J[0:3, 0:3])
         x = p_from_T(T)
         iternum = 0
         
         while np.linalg.norm(xgoal - x) > 0.000001:
             theta = theta + Jinv @ (xgoal - x)
             (T, J) = self.fkin(theta)
-            Jinv = np.linalg.inv(J[0:3, 0:3])
+            Jinv = np.linalg.pinv(J[0:3, 0:3])
             x = p_from_T(T)
             iternum += 1
             if iternum > 100:
