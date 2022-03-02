@@ -159,7 +159,7 @@ class Receiver:
         if self.float:
             # Set q_des = q_actual to make the arm "float"
             nan = float('nan')
-            cmdmsg.position = np.array([nan, nan, nan, nan]).reshape((4,1))
+            cmdmsg.position = np.array([nan, nan, nan, -np.pi/2 - self.curr_pos[1] - self.curr_pos[2]]).reshape((4,1))
             cmdmsg.velocity = np.array([nan, nan, nan, nan]).reshape((4,1))
             cmdmsg.effort = self.gravity(self.curr_pos)
         
@@ -180,6 +180,11 @@ class Receiver:
             else:
                 raise ValueError('Unknown Spline Type')
             
+        # Print xyz location
+        #(T, J) = self.kin.fkin(self.curr_pos)
+        #print(T)
+
+
         # TODO: Implement Gravity Compensation Function for 4DOF
         #cmdmsg.effort = self.gravity(self.curr_pos)
 
