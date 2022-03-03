@@ -46,7 +46,7 @@ class Trajectory:
 
     #
     # Adds a trajectory to the stack (LIFO)
-    #
+    # Adds to the end of the list, pop grabs from end of list so added spline is done next
     def add_spline(self, next_spline):
         self.splines.append(next_spline)
 
@@ -108,7 +108,7 @@ class Receiver:
         for i in range(self.dofs):
             if (msg.name[i] != self.motors[i]):
                 raise ValueError("Motor names don't match")
-        self.pos_init = np.array(msg.position).reshape((self.dofs, 1))
+
         # self.pos_init = np.array([0.0, 0.0, 0.0, 0.0]).reshape((4, 1))
 
         self.callback_actual(msg)
@@ -116,24 +116,28 @@ class Receiver:
         # TODO: Create the necessary subscribers for the general case and events.
         # self.sub = rospy.Subscriber('/actual', JointState, self.callback_actual)
         # self.sub_e = rospy.Subscriber('/event', String, self.callback_event)
-        #self.sub_hackysack = rospy.Subscriber('/force_sensor', JointState, self.callback_hackysack)
+        # self.sub_hackysack = rospy.Subscriber('/force_sensor', JointState, self.callback_hackysack)
         
         # Grab the robot's URDF from the parameter server.
         # Might have to change this because we'll have multiple URDFs
         robot = Robot.from_parameter_server()
 
         # Instantiate the Kinematics
-        self.kin = kin.Kinematics(robot, 'world', 'UpperArm')
+        self.kin = kin.Kinematics(robot, 'world', 'GripperLBracket')
+
+        self.pos_init = np.array(msg.position).reshape((self.dofs, 1))
+        [T, J] = self.kin.fkin(self.pos_init[0:3])
+        self.pos_init_task = kin.p_from_T(T)
 
         # Initialize the state of the robot
-        self.curr_pos = self.pos_init[0:3]
-        self.curr_vel = np.array([0.0, 0.0, 0.0]).reshape((3, 1))  
+        #self.curr_pos = np.array([0.0, 0.0, 0.0]).reshape((3, 1))  
+        #self.curr_vel = np.array([0.0, 0.0, 0.0]).reshape((3, 1))  
         self.curr_t = 0.0
         self.curr_accel = np.array([0.0, 0.0, 0.0]).reshape((3, 1))
     
         # Initialize the trajectory
-        self.START = np.array([-1.55, 1.39, -2.29]).reshape((3, 1))
-        self.DROPOFF = np.array([-1.67, 0.95, -1.01]).reshape((3, 1))           # TODO: Change to match thrower START
+        self.START = np.array([-0.10, 0.0, 0.060]).reshape((3, 1))
+        self.DROPOFF = np.array([0.63, -0.05, 0.30]).reshape((3, 1))           # TODO: Change to match thrower START
         self.TRAJ_TIME = 5.0        
         self.grasp_open = 0      # 0 is ungrasped, 1 is grasped
         self.grasp_closed = 1
@@ -146,29 +150,29 @@ class Receiver:
 
         # If we want to float the arm for testing
         self.float = False
-        self.TRAVEL_TIME = 30.0
+        self.TRAVEL_TIME = 15.0
 
         # HOLD
-        self.OFFSET_TIME = 10.0
-        self.GRASP_TIME = 20.0
+        self.OFFSET_TIME = 5.0
+        self.GRASP_TIME = 5.0
 
         # Initialize the trajectories that we want for the loop
         hackysack_pos = np.array([-0.25, 0.39, 0.025]).reshape((3, 1))
         q_hackysack = np.array([0.40, 1.06, -2.07]).reshape((3,1))
         q_above_hackysack = np.array([0.38, 1.18, -2.07])
         zero = np.zeros((3,1))
-        # q_hackysack = self.kin.ikin(hackysack_pos, np.array([0.40, 1.06, -2.07]).reshape((3,1)))
-        # z_offset = np.array(0.0, 0.0, 0.05)
+        q_hackysack = hackysack_pos
+        z_offset = np.array([0.0, 0.0, 0.05]).reshape((3,1))
+        hackysack_above = hackysack_pos + z_offset
         # q_above_hackysack = self.kin.ikin(hackysack_pos + z_offset, np.array([0.40, 1.06, -2.07]).reshape((3,1)))
-
-        self.trajectory = Trajectory([Goto5(self.curr_t, self.pos_init[0:3], self.START, self.TRAVEL_TIME),              # Actual Pos to Start Pos
-            Goto5(self.curr_t+self.TRAVEL_TIME, self.START, q_above_hackysack, self.TRAVEL_TIME),                         # Start Pos to Above Hackysack
-            Goto5(self.curr_t+2*self.TRAVEL_TIME, q_above_hackysack, q_hackysack, self.OFFSET_TIME),                     # Above Hackysack to Hackysack
-            Goto5(self.curr_t+2*self.TRAVEL_TIME+self.OFFSET_TIME, q_hackysack, q_hackysack, self.GRASP_TIME),                           # TODO: IMPLEMENT THE GRASPING PART
-            Goto5(self.curr_t+2*self.TRAVEL_TIME+self.OFFSET_TIME+self.GRASP_TIME, q_hackysack, q_above_hackysack, self.OFFSET_TIME),       #  Hackysack to Above Hackysack
-            Goto5(self.curr_t+2*self.TRAVEL_TIME+2*self.OFFSET_TIME+self.GRASP_TIME, q_above_hackysack, self.DROPOFF, self.TRAVEL_TIME),    # Above Hackysack to Thrower Pos
-            Goto5(self.curr_t+3*self.TRAVEL_TIME+2*self.OFFSET_TIME+self.GRASP_TIME, self.DROPOFF, self.DROPOFF, self.GRASP_TIME),                           # TODO: IMPLEMENT THE GRASPING PART
-            Goto5(self.curr_t+3*self.TRAVEL_TIME+2*self.OFFSET_TIME+2*self.GRASP_TIME, self.DROPOFF, self.START, self.TRAVEL_TIME)])                               # Return to start
+        self.trajectory = Trajectory([Goto5(self.curr_t, self.pos_init_task[0:3], self.START, self.TRAVEL_TIME,'Task'),              # Actual Pos to Start Pos
+            Goto5(self.curr_t+self.TRAVEL_TIME, self.START, hackysack_above, self.TRAVEL_TIME,'Task'),                         # Start Pos to Above Hackysack
+            Goto5(self.curr_t+2*self.TRAVEL_TIME, hackysack_above, hackysack_pos, self.OFFSET_TIME,'Task'),                     # Above Hackysack to Hackysack
+            Goto5(self.curr_t+2*self.TRAVEL_TIME+self.OFFSET_TIME, hackysack_pos, hackysack_pos, self.GRASP_TIME,'Task'),                           # TODO: IMPLEMENT THE GRASPING PART
+            Goto5(self.curr_t+2*self.TRAVEL_TIME+self.OFFSET_TIME+self.GRASP_TIME, hackysack_pos, hackysack_above, self.OFFSET_TIME,'Task'),       #  Hackysack to Above Hackysack
+            Goto5(self.curr_t+2*self.TRAVEL_TIME+2*self.OFFSET_TIME+self.GRASP_TIME, hackysack_above, self.DROPOFF, self.TRAVEL_TIME,'Task'),    # Above Hackysack to Thrower Pos
+            Goto5(self.curr_t+3*self.TRAVEL_TIME+2*self.OFFSET_TIME+self.GRASP_TIME, self.DROPOFF, self.DROPOFF, self.GRASP_TIME,'Task'),                           # TODO: IMPLEMENT THE GRASPING PART
+            Goto5(self.curr_t+3*self.TRAVEL_TIME+2*self.OFFSET_TIME+2*self.GRASP_TIME, self.DROPOFF, self.START, self.TRAVEL_TIME,'Task')])                               # Return to start
 
         # Initialize any helpful global variables
         self.is_waiting = False
@@ -207,10 +211,27 @@ class Receiver:
                 (x, xdot) = self.trajectory.update(t)
                 cart_pos = np.array(x).reshape((3,1))
                 cart_vel = np.array(xdot).reshape((3,1))
+                print("pos theta")
+                print(self.curr_pos)
+                print("cart_pos")
+                print(cart_pos)
+                #this_pos_tuple = self.kin.ikin(cart_pos, self.curr_pos)
+
+                (T,J) = self.kin.fkin(self.curr_pos)
+                p = T[0:3,3:4]
                 
-                this_pos = self.kin.ikin(cart_pos, self.curr_pos)
-                (T, J) = self.kin.fkin(cmdmsg.position)
-                this_vel = np.linalg.inv(J[0:3,0:3]) @ cart_vel
+                ep = cart_pos - p
+                print(ep)
+
+                xrdot = cart_vel + .01*ep
+                this_vel = np.linalg.inv(J[0:3,0:3]) @ xrdot
+                this_pos = self.curr_pos + dt*this_vel
+
+                #this_pos = np.array([this_pos_tuple[0], this_pos_tuple[1], this_pos_tuple[2]]).reshape((3,1))
+                #joint_pos = np.array([cmdmsg.position[0],cmdmsg.position[1],cmdmsg.position[2]]).reshape((3,1))
+                #print(joint_pos)
+                #(T, J) = self.kin.fkin(this_pos)
+                #this_vel = np.linalg.inv(J[0:3,0:3]) @ cart_vel
             else:
                 raise ValueError('Unknown Spline Type')
             
@@ -219,7 +240,9 @@ class Receiver:
         # print(T)
 
         # Update the grasping and the gripper value
+        print("pos")
         print(this_pos)
+        print("vel")
         print(this_vel)
         cmdmsg.position = np.array([this_pos[0,0], this_pos[1,0], this_pos[2,0], -np.pi/2 - this_pos[1,0] - this_pos[2,0]]).reshape((4,1))
         cmdmsg.velocity = np.array([this_vel[0,0], this_vel[1,0], this_vel[2,0], 0.0 - this_vel[1,0] - this_vel[2,0]]).reshape((4,1))
@@ -228,9 +251,9 @@ class Receiver:
         cmdmsg.effort = self.gravity(self.curr_pos)
 
         # Store the command message
-        self.curr_pos = cmdmsg.position
-        self.curr_vel = cmdmsg.velocity
-        self.curr_accel = cmdmsg.effort
+        self.curr_pos = cmdmsg.position[0:3]
+        self.curr_vel = cmdmsg.velocity[0:3]
+        self.curr_accel = cmdmsg.effort[0:3]
         self.curr_t = t
 
 
@@ -254,8 +277,8 @@ class Receiver:
     #
     def callback_actual(self, msg):
         # TODO: See what you may need this callback function for.
-        self.curr_pos = msg.position
-        self.curr_vel = msg.velocity
+        self.curr_pos = msg.position[0:3]
+        self.curr_vel = msg.velocity[0:3]
        
     #
     # Callback Function for the Error Sensing

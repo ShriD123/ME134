@@ -249,7 +249,7 @@
   </link>
   <joint
     name="Wrist"
-    type="continuous">
+    type="fixed">
     <origin
       xyz="0 0.4064 0.05605"
       rpy="-3.14159265358979 0 3.14159265358979" />
