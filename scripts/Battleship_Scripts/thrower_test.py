@@ -222,7 +222,7 @@ class Thrower:
         self.curr_t = t
 
 
-        if (self.curr_pos[1] <= -0.1 or self.curr_pos[1] >= np.pi/2):
+        if (self.curr_pos[1] <= -0.15 or self.curr_pos[1] >= np.pi/2):
             rospy.logerr("Bad theta input")
             rospy.signal_shutdown()
 

@@ -9,7 +9,7 @@ from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
 from detector_demo.msg import SingleDetection, ManyDetections
 from sensor_msgs.msg import CameraInfo
-from ME134.msg import array
+from ME134.msg import aruco_center
 
 ''' This code contains the functionality of the detector node as well as all the constituent params.'''
 
@@ -67,6 +67,8 @@ class Detector:
             'detection_images_thresh', Image, queue_size=10)
 
         self.detections_msg = ManyDetections()
+
+        self.blobpub = rospy.Publisher('blob_loc', aruco_center, queue_size=10)
 
         # Prepare OpenCV bridge used to translate ROS Image message to OpenCV
         # image array.
@@ -201,39 +203,37 @@ class Detector:
 
         # Close to thrower, far from receiver
         coord = np.array([[0,1],[2,3],[4,5],[6,7]])
+        p0 = (-0.055, 0.115)
         for i in [0,1,2,3]:
             if self.marker_id[i] == 0:
-                p0 = (0, 0)
+                p0 = p0
                 a0 = (self.center_values[coord[i,0]], self.center_values[coord[i,1]])
-            # Far from both
             elif self.marker_id[i] == 1:
-                p1 = (0, 0.555)
+                p1 = (p0[0], p0[1] + 0.555)
                 a1 = (self.center_values[coord[i,0]], self.center_values[coord[i,1]])
-            # Close to both
-            elif self.marker_id[i] == 2:
-                p2 = (0.555, 0)
+            elif self.marker_id[i] == 7:
+                p2 = (p0[0] - 0.555, p0[1])
                 a2 = (self.center_values[coord[i,0]], self.center_values[coord[i,1]])
-            # Close to receiver, far from thrower
             elif self.marker_id[i] == 3:
-                p3 = (0.555, 0.555)
+                p3 = (p0[0] - 0.555, p0[1] + 0.555)
                 a3 = (self.center_values[coord[i,0]], self.center_values[coord[i,1]])
-            elif self.marker_id[i] == 4:
-                test_point = (self.center_values[coord[i,0]], self.center_values[coord[i,1]])
         
         pixels = np.float32([[a0],[a1],[a2],[a3]])
         coords = cv2.undistortPoints(pixels, self.camK, self.camD)
         points = np.float32([p0, p1, p2, p3])
         self.M = cv2.getPerspectiveTransform(coords, points)
 
-        # TODO implement blob detection here
         sack_loc = self.sack_detector(data)
 
- 
-        pixels = np.float32([[sack_loc[0],sack_loc[1]]])
-        coords = cv2.undistortPoints(pixels, self.camK, self.camD)
-        points = cv2.perspectiveTransform(coords, self.M)
-        rospy.loginfo(points[0,0,:])
-        return points[0,0,:]
+        if sack_loc != "No Blob":
+            pixels = np.float32([[sack_loc[0],sack_loc[1]]])
+            coords = cv2.undistortPoints(pixels, self.camK, self.camD)
+            points = cv2.perspectiveTransform(coords, self.M)
+            rospy.loginfo(points[0,0,:])
+            self.blobpub.publish(points[0,0,:])
+            return points[0,0,:]
+        else:
+            return sack_loc
 
 
     def sack_detector(self, data):
@@ -287,23 +287,26 @@ class Detector:
             area = cv2.contourArea(contour)
             if area > 30:
                 circular_contours.append(contour)
+        if len(circular_contours) != 0:
+            # Construct detection message.
+            self.detections_msg.detections = []
+            for contour in circular_contours:
+                x, y, w, h = cv2.boundingRect(contour)
+                detection_msg = SingleDetection()
 
-        # Construct detection message.
-        self.detections_msg.detections = []
-        for contour in circular_contours:
-            x, y, w, h = cv2.boundingRect(contour)
-            detection_msg = SingleDetection()
+                detection_msg.x = x + w / 2
+                detection_msg.y = y + h / 2
+                detection_msg.size_x = w
+                detection_msg.size_y = h
 
-            detection_msg.x = x + w / 2
-            detection_msg.y = y + h / 2
-            detection_msg.size_x = w
-            detection_msg.size_y = h
+                self.detections_msg.detections.append(detection_msg)
 
-            self.detections_msg.detections.append(detection_msg)
-
-        # Send detection message.
-        self.detections_pub.publish(self.detections_msg)
-        return detection_msg.x, detection_msg.y
+            # Send detection message.
+            self.detections_pub.publish(self.detections_msg)
+            return detection_msg.x, detection_msg.y
+        else:
+            stri = "No Blob"
+            return stri
 
     #
     # Start the Detector (not sure if we really need this function)

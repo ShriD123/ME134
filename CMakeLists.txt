@@ -16,6 +16,7 @@ find_package(Eigen3 REQUIRED)
 add_message_files(
   FILES
   array.msg
+  aruco_center.msg
   )
   
 generate_messages(
