@@ -224,6 +224,8 @@ class Kinematics:
         while np.linalg.norm(xgoal - x) > 0.001:
             theta = theta + Jinv @ (xgoal - x)
             (T, J) = self.fkin(theta)
+            #print(T)
+            #print(J)
             Jinv = np.linalg.inv(J[0:3, 0:3])
             x = p_from_T(T)
             iternum += 1
@@ -231,7 +233,7 @@ class Kinematics:
                 rospy.logerr("Newton-Raphson failed to converge in 100 iterations")
                 raise Exception()
         
-        print("converged")
+        #print("converged")
         # Return theta
         return (theta)
 

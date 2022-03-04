@@ -12,6 +12,7 @@ from urdf_parser_py.urdf import Robot
 from ME134.msg import array
 from splines import CubicSpline, Goto, Hold, Stay, QuinticSpline, Goto5
 import numpy as np
+import time
 
 '''This code encapsulates the functionality for the receiver arm as well as its
 corresponding error sensing and the necessary subscribers for itself.'''
@@ -123,7 +124,7 @@ class Receiver:
         robot = Robot.from_parameter_server()
 
         # Instantiate the Kinematics
-        self.kin = kin.Kinematics(robot, 'world', 'GripperLBracket')
+        self.kin = kin.Kinematics(robot, 'world', 'tip')
 
         self.pos_init = np.array(msg.position).reshape((self.dofs, 1))
         [T, J] = self.kin.fkin(self.pos_init[0:3])
@@ -136,7 +137,8 @@ class Receiver:
         self.curr_accel = np.array([0.0, 0.0, 0.0]).reshape((3, 1))
     
         # Initialize the trajectory
-        self.START = np.array([-0.10, 0.0, 0.060]).reshape((3, 1))
+        #self.START = np.array([-0.10, 0.0, 0.060]).reshape((3, 1))
+        self.START = np.array([-0.50, 0.0, 0.3]).reshape((3, 1))
         self.DROPOFF = np.array([0.63, -0.05, 0.30]).reshape((3, 1))           # TODO: Change to match thrower START
         self.TRAJ_TIME = 5.0        
         self.grasp_open = 0      # 0 is ungrasped, 1 is grasped
@@ -191,7 +193,11 @@ class Receiver:
             nan = float('nan')
             cmdmsg.position = np.array([nan, nan, nan, -np.pi/2 - self.curr_pos[1] - self.curr_pos[2]]).reshape((4,1))
             cmdmsg.velocity = np.array([nan, nan, nan, nan]).reshape((4,1))
+            # cmdmsg.effort = np.array([0.0, 0.0, 0.0, 0.0]).reshape((4,1))
             cmdmsg.effort = self.gravity(self.curr_pos)
+            (T,J) = self.kin.fkin(self.curr_pos)
+            p = T[0:3,3:4]
+            #print(p)
         
         else:
             # If the current segment is done, shift to the next.
@@ -211,50 +217,50 @@ class Receiver:
                 (x, xdot) = self.trajectory.update(t)
                 cart_pos = np.array(x).reshape((3,1))
                 cart_vel = np.array(xdot).reshape((3,1))
-                print("pos theta")
-                print(self.curr_pos)
-                print("cart_pos")
-                print(cart_pos)
-                #this_pos_tuple = self.kin.ikin(cart_pos, self.curr_pos)
+                #print("pos theta")
+                #print(self.curr_pos)
+                #print("cart_pos")
+                #print(cart_pos)
+                this_pos_tuple = self.kin.ikin(cart_pos, np.array(self.curr_pos).reshape((3,1)))
 
-                (T,J) = self.kin.fkin(self.curr_pos)
-                p = T[0:3,3:4]
+                # (T,J) = self.kin.fkin(self.curr_pos)
+                # p = T[0:3,3:4]
                 
-                ep = cart_pos - p
-                print(ep)
+                # ep = cart_pos - p
+                # print(ep)
 
-                xrdot = cart_vel + .01*ep
-                this_vel = np.linalg.inv(J[0:3,0:3]) @ xrdot
-                this_pos = self.curr_pos + dt*this_vel
+                # xrdot = cart_vel + .01*ep
+                # this_vel = np.linalg.inv(J[0:3,0:3]) @ xrdot
+                # this_pos = self.curr_pos + dt*this_vel
 
-                #this_pos = np.array([this_pos_tuple[0], this_pos_tuple[1], this_pos_tuple[2]]).reshape((3,1))
+                this_pos = np.array([this_pos_tuple[0], this_pos_tuple[1], this_pos_tuple[2]]).reshape((3,1))
                 #joint_pos = np.array([cmdmsg.position[0],cmdmsg.position[1],cmdmsg.position[2]]).reshape((3,1))
                 #print(joint_pos)
-                #(T, J) = self.kin.fkin(this_pos)
-                #this_vel = np.linalg.inv(J[0:3,0:3]) @ cart_vel
+                (T, J) = self.kin.fkin(this_pos)
+                this_vel = np.linalg.inv(J[0:3,0:3]) @ cart_vel
             else:
                 raise ValueError('Unknown Spline Type')
             
-        # Print xyz location
-        # (T, J) = self.kin.fkin(self.curr_pos)
-        # print(T)
+            # Print xyz location
+            # (T, J) = self.kin.fkin(self.curr_pos)
+            # print(T)
 
-        # Update the grasping and the gripper value
-        print("pos")
-        print(this_pos)
-        print("vel")
-        print(this_vel)
-        cmdmsg.position = np.array([this_pos[0,0], this_pos[1,0], this_pos[2,0], -np.pi/2 - this_pos[1,0] - this_pos[2,0]]).reshape((4,1))
-        cmdmsg.velocity = np.array([this_vel[0,0], this_vel[1,0], this_vel[2,0], 0.0 - this_vel[1,0] - this_vel[2,0]]).reshape((4,1))
+            # Update the grasping and the gripper value
+            #print("pos")
+            #print(this_pos)
+            #print("vel")
+            #print(this_vel)
+            cmdmsg.position = np.array([this_pos[0,0], this_pos[1,0], this_pos[2,0], -np.pi/2 - this_pos[1,0] - this_pos[2,0]]).reshape((4,1))
+            cmdmsg.velocity = np.array([this_vel[0,0], this_vel[1,0], this_vel[2,0], 0.0 - this_vel[1,0] - this_vel[2,0]]).reshape((4,1))
 
-        # TODO: Implement Gravity Compensation Function for 4DOF
-        cmdmsg.effort = self.gravity(self.curr_pos)
+            # TODO: Implement Gravity Compensation Function for 4DOF
+            cmdmsg.effort = self.gravity(self.curr_pos)
 
-        # Store the command message
-        self.curr_pos = cmdmsg.position[0:3]
-        self.curr_vel = cmdmsg.velocity[0:3]
-        self.curr_accel = cmdmsg.effort[0:3]
-        self.curr_t = t
+            # Store the command message
+            self.curr_pos = cmdmsg.position[0:3]
+            self.curr_vel = cmdmsg.velocity[0:3]
+            self.curr_accel = cmdmsg.effort[0:3]
+            self.curr_t = t
 
 
 
@@ -307,6 +313,7 @@ if __name__ == "__main__":
     rospy.loginfo("Running the servo loop with dt of %f seconds (%fHz)" %
                   (dt, rate))
 
+    time.sleep(1)
 
     # Run the servo loop until shutdown (killed or ctrl-C'ed).
     starttime = rospy.Time.now()
