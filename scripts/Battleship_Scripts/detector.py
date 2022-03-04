@@ -187,7 +187,7 @@ class Detector:
         # Show the output image
         # cv2.imshow("Processed Image", image)
         # Publish the resulting image (to be viewed by rqt_image_view)
-        self.images_pub.publish(self.bridge.cv2_to_imgmsg(self.image, 'bgr8'))
+        # self.images_pub.publish(self.bridge.cv2_to_imgmsg(self.image, 'bgr8'))
         # rospy.sleep(0.25)
         # cv2.waitKey(0)
     
@@ -263,8 +263,8 @@ class Detector:
 
         # Remove noise from the image via erosion/dilation.
         kernel = np.ones((3, 3), np.uint8)
-        thresh = cv2.erode(thresh, kernel, iterations=6)
-        thresh = cv2.dilate(thresh, kernel, iterations=10)
+        thresh = cv2.erode(thresh, kernel, iterations=5)
+        thresh = cv2.dilate(thresh, kernel, iterations=5)
         
         # Publish the image viewed by the camera
         self.images_pub.publish(self.bridge.cv2_to_imgmsg(thresh, 'mono8'))
@@ -282,10 +282,10 @@ class Detector:
         # https://www.pyimagesearch.com/2014/07/21/detecting-circles-images-using-opencv-hough-circles/
         circular_contours = []
         for contour in contours:
-            approx = cv2.approxPolyDP(
-                contour, 0.01*cv2.arcLength(contour, True), True)
+            # approx = cv2.approxPolyDP(
+            #     contour, 0.01*cv2.arcLength(contour, True), True)
             area = cv2.contourArea(contour)
-            if ((len(approx) > 8) & (area > 30)):
+            if area > 30:
                 circular_contours.append(contour)
 
         # Construct detection message.
@@ -333,5 +333,5 @@ class Detector:
 #  Main Code for Detector Only
 #
 if __name__ == '__main__':
-    d = Detector(h_lims=(100, 200), s_lims=(120, 230), v_lims=(120, 230))
+    d = Detector(h_lims=(100, 200), s_lims=(100, 230), v_lims=(100, 250))
     d.start()
