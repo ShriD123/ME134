@@ -1,7 +1,7 @@
 <launch>
   <!-- Define general parameters.  These can be overwritten by the
        roslaunch command line. -->
-  <arg name="urdf"  default="retriever.urdf"/>
+  <arg name="urdf"  default="ReceiveAssem.urdf"/>
   <arg name="model" default="$(find ME134)/urdf/$(arg urdf)"/>
   <arg name="cfg"   default="$(find ME134)/rviz/viewurdf.rviz" />
 

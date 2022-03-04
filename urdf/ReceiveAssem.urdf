@@ -146,7 +146,7 @@
     type="continuous">
     <origin
       xyz="-0.0889 0 0.05135"
-      rpy="0 -1.5707963267949 3.14159265358979" />
+      rpy="1.5707963267949 0 1.5707963267949" />
     <parent
       link="LBracket" />
     <child
@@ -249,7 +249,7 @@
   </link>
   <joint
     name="Wrist"
-    type="continuous">
+    type="fixed">
     <origin
       xyz="0 0.4064 0.05605"
       rpy="-3.14159265358979 0 3.14159265358979" />
@@ -267,7 +267,7 @@
     name="Gripper"
     type="fixed">
     <origin
-      xyz="0 0.1 -0.0325"
+      xyz="0 0.0 -0.0325"
       rpy="0 0 0" />
     <parent
       link="GripperLBracket" />
