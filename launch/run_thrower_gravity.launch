@@ -8,13 +8,13 @@
 
 
   <!-- Load the URDF file into the robot_description parameter. -->
-  <param name="robot_description" textfile="$(arg model)"/>
+  <!-- <param name="robot_description" textfile="$(arg model)"/> -->
 
 
   <!-- Start the HEBI node. -->
   <node pkg ="me134basic"
 	type="hebi"
-	name="hebi"
+	name="hebi_thrower"
 	output="screen"
 	required="true">
     <rosparam>
@@ -26,7 +26,7 @@
   <!-- Start the demo node. -->
   <node pkg ="ME134"
 	type="thrower_test.py"
-	name="demo"
+	name="demo_thrower"
 	output="screen"
 	required="true"/>
   
