@@ -7,8 +7,7 @@ import numpy as np
 
 from detector import Detector
 from receiver import Receiver
-# from thrower import Thrower           TODO: Move changes over to compute spline later
-from thrower_test import Thrower
+from thrower import Thrower
 from visualize_battle import Visualization
 from algorithm import Bayes
 
@@ -90,6 +89,8 @@ class Battleship:
         self.bayes = Bayes()
 
         # Collect the motor names, which defines the dofs (useful to know)
+        # First 2 are Thrower motors, last 5 are receiver motors (with last being for gripper)
+        # TODO: Change the order of the motors names/wiring to match this scheme
         self.motors = ['Red/1', 'Red/2', 'Red/3', 'Red/4', 'Red/5', 'Red/6', 'Red/7']
         self.dofs = len(self.motors)
 
@@ -97,7 +98,7 @@ class Battleship:
         self.curr_t = 0.0
         self.board_size = 5
         self.ship_sizes = [4, 3, 2]
-        
+        '''
         # Initialize the board, saved as a 5x5 numpy array
         # 1 means a ship is at that location, while 0 means it is empty.
         self.board = np.zeros(self.board_size, self.board_size)
@@ -108,7 +109,7 @@ class Battleship:
         # Visualize the board. 
         #TODO: Figure out how to differentiate between player and robot and different ships
         self.vis.draw_board(self.board)
-
+        '''
         # Create publishers and subscribers for the Detector. 
         self.pub_image = rospy.Publisher('detection_images_thresh', Image, queue_size=10)
         self.pub_detect = rospy.Publisher('detections', ManyDetections, queue_size=10)
@@ -123,9 +124,10 @@ class Battleship:
         rospy.sleep(0.50)
 
         #TODO: Move all the arms to a starting position.
+        self.THROW_START = np.array([0.0, 
 
         #TODO: Let player choose their board (how to implement?)
-
+])
         #TODO: Make a noise to indicate when ready (let player take first turn?)
 
 
@@ -145,10 +147,10 @@ class Battleship:
         # TODO: Implement what to do with the corresponding detection later.
 
         # Update both receiver and thrower. All storage of info happens in those update functions.
-        q_receiver, qdot_receiver = self.receiver.update(t)
-        q_thrower, qdot_thrower = self.thrower.update(t)
-        qdotdot_receiver = self.receiver.gravity()              # Definitely wrong, but will want something like this
-        qdotdot_thrower = self.thrower.gravity()              # Definitely wrong, but will want something like this
+        q_r, qdot_r = self.receiver.update(t)
+        q_t, qdot_t = self.thrower.update(t)
+        qdotdot_r = self.receiver.gravity()              # Definitely wrong, but will want something like this
+        qdotdot_t = self.thrower.gravity()              # Definitely wrong, but will want something like this
 
         # Send the command (with the current time).
         cmdmsg.position = np.array([q_thrower, q_receiver]).reshape((self.dofs, 1))
