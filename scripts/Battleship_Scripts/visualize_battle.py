@@ -7,6 +7,7 @@ import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.ticker import AutoMinorLocator
+from playsound import playsound
 
 '''This code encapsulates the functionality for the visualization aspects that show
 the current board and guesses on the monitor and plays sounds for hits or misses.'''
@@ -93,10 +94,12 @@ class Visualizer:
     #    
     # Make Sounds of Hit/Miss
     #
-    def make_sound(self):
-        #TODO: Make the corresponding sound of hit or miss come from a speaker.
-        # Will have to look into how exactly this can work.
-        pass
+    def make_sound(self, hit=False):
+        #TODO: Download the hit or miss audio & insert path
+        if hit:
+            playsound('hit.mp3')
+        else:
+            playsound('miss.mp3')
 
 
 ###############################################################################
