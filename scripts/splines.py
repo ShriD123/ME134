@@ -111,6 +111,7 @@ class QuinticSpline:
         self.e =  15*p0/T**4 + 8*v0/T**3 + 3*a0/T**2 - 15*pf/T**4 + 7*vf/T**3 -   1*af/T**2
         self.f =  -6*p0/T**5 - 3*v0/T**4 - 1*a0/T**3 +  6*pf/T**5 - 3*vf/T**4 + 0.5*af/T**3
         self.t0 = t0
+        #print(t0)
         # Also save the space
         self.usespace = space
 
