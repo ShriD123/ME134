@@ -16,19 +16,6 @@ from ME134.msg import aruco_center
 
 ###############################################################################
 #
-#  Helper Functions
-#
-class Helper:
-    #TODO
-    # This should not be a class, but rather global functions. This is just
-    # a placeholder as a reminder to add in helper functions (if necessary).
-
-    #TODO: Add the error sensing functions here? Or in Detector Class?
-    pass
-
-
-###############################################################################
-#
 #  Detector Class
 #
 class Detector:
@@ -41,7 +28,7 @@ class Detector:
 
         # Grab an instance of the camera data with predetermined calibration.
         rospy.loginfo("Waiting for camera info...")
-        msg = rospy.wait_for_message('/usb_cam/camera_info', CameraInfo);
+        msg = rospy.wait_for_message('/usb_cam/camera_info', CameraInfo)
         self.camD = np.array(msg.D).reshape(5)
         self.camK = np.array(msg.K).reshape((3,3))
 
@@ -62,7 +49,6 @@ class Detector:
         # See Msg/SingleDetection.msg and Msg/ManyDetections.msg for details.
         self.detections_pub = rospy.Publisher('detections', ManyDetections, queue_size=10)
 
-        # # TODO
         self.images_pub = rospy.Publisher(
             'detection_images_thresh', Image, queue_size=10)
 
