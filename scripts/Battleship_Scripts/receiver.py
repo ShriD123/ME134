@@ -3,8 +3,6 @@
 import rospy
 import math
 import sys
-# Get path of parent directory for kinematics and splines import
-sys.path.insert(1, '/home/me134/me134ws/src/ME134/scripts')
 import kinematics as kin
 from sensor_msgs.msg   import JointState
 from std_msgs.msg import String
@@ -12,6 +10,8 @@ from urdf_parser_py.urdf import Robot
 from ME134.msg import array
 from splines import CubicSpline, Goto, Hold, Stay, QuinticSpline, Goto5
 import numpy as np
+
+sys.path.insert(1, '/home/me134/me134ws/src/ME134/scripts')
 
 '''This code encapsulates the functionality for the receiver arm as well as its
 corresponding error sensing and the necessary subscribers for itself.'''
@@ -134,6 +134,7 @@ class Receiver:
         self.START = np.array([np.pi/2, 0.0, 0.0, 0.0]).reshape((4, 1))
         self.TRAJ_TIME = 5.0        
         self.trajectory = Trajectory([Goto5(self.curr_t, self.pos_init, self.START, self.TRAJ_TIME)])
+        self.grasp = False
 
         # Initialize the gravity parameters TODO: Tune and test these parameters for our 4DOF
         self.grav_A = 0.20

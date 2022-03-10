@@ -100,19 +100,20 @@ class Thrower:
         #!-- END RVIZ TESTING
         
         #--- FOR ACTUAL ROBOT
-        self.pub = rospy.Publisher("/hebi/joint_commands", JointState, queue_size=5)
+        self.pub = rospy.Publisher("/hebi_thrower/joint_commands", JointState, queue_size=5)
+        self.trpub = rospy.Publisher("/tr", String, queue_size=5)
         
         rospy.sleep(0.25)
         
         #--- FOR ACTUAL ROBOT
         # Create subscribers for the general case and events.
-        self.sub = rospy.Subscriber('/hebi/joint_states', JointState, self.callback_actual, queue_size=5)
+        self.sub = rospy.Subscriber('/hebi_thrower/joint_states', JointState, self.callback_actual, queue_size=5)
         
         # Callback event for exit wait condition
-        self.sub_exitwait = rospy.Subscriber('/event', String, self.callback_exitwait)
+        self.sub_exitwait = rospy.Subscriber('/rt', String, self.callback_exitwait)
         
         # # Find the starting positions. 
-        msg = rospy.wait_for_message('/hebi/joint_states', JointState)
+        msg = rospy.wait_for_message('/hebi_thrower/joint_states', JointState)
         for i in range(self.dofs):
             if (msg.name[i] != self.motors[i]):
                 raise ValueError("Motor names don't match")
@@ -131,10 +132,10 @@ class Thrower:
         
         # Grab the robot's URDF from the parameter server.
         # Might have to change this because we'll have multiple URDFs
-        robot = Robot.from_parameter_server()
+        #robot = Robot.from_parameter_server()
 
         # Instantiate the Kinematics
-        self.kin = kin.Kinematics(robot, 'world', 'tip')
+        #self.kin = kin.Kinematics(robot, 'world', 'tip')
 
         # Initialize current time
         self.curr_t = 0.0
@@ -167,6 +168,8 @@ class Thrower:
         
         # Initialize any helpful global variables
         self.is_waiting = False
+
+        self.msg_sent = False
         
         
     #
@@ -195,6 +198,10 @@ class Thrower:
             if (t-self.trajectory.start_time()) >= self.trajectory.duration():
                 if self.trajectory.is_empty():
                     self.is_waiting = True
+                    if not self.msg_sent:
+                        trmsg = "Receive"
+                        self.trpub.publish(trmsg)
+                        self.msg_sent = True
                 else:
                     self.trajectory.pop_spline()
 
@@ -214,9 +221,16 @@ class Thrower:
         self.curr_accel = cmdmsg.effort
         self.curr_t = t
 
+
+        if (self.curr_pos[1] <= -0.15 or self.curr_pos[1] >= np.pi/2):
+            rospy.logerr("Bad theta input")
+            rospy.signal_shutdown()
+
         # Send the command (with the current time).
         cmdmsg.header.stamp = rospy.Time.now()
         self.pub.publish(cmdmsg)
+
+
 
         
 
@@ -247,6 +261,7 @@ class Thrower:
         # Exit wait if wait is true
         if self.is_waiting:
             self.is_waiting = False
+            self.msg_sent = False
             # Populate spline with new trajectory
             self.compute_spline((2, 0))
 
@@ -258,7 +273,7 @@ class Thrower:
         # For now, we will just use kinematic equations (once testing of arm is complete)
 
         # Initialize the state of the robot
-        self.curr_pos = self.pos_init
+        self.curr_pos = self.LOAD
         self.curr_vel = np.array([0.0, 0.0]).reshape((2, 1))
         self.curr_accel = np.array([0.0, 0.0]).reshape((2, 1))
 
@@ -315,10 +330,9 @@ class Thrower:
                 self.LOAD, self.LOAD, self.HOLD_TIME),
             # Move from initial position to loading position. (Initial may be the same as loading position)
             Goto5(self.curr_t,
-                self.pos_init, self.LOAD, self.TRAVEL_TIME)])
+                self.LOAD, self.LOAD, self.TRAVEL_TIME)])
 
-        # Change pos init to loading after first function call
-        self.pos_init = self.LOAD
+
 
 
                             
