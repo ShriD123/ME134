@@ -24,7 +24,7 @@
 
   <!-- Start the demo node. -->
   <node pkg ="ME134"
-	type="receiver_test.py"
+	type="receiver.py"
 	name="demo"
 	output="screen"
 	required="true"/>

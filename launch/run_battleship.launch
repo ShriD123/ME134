@@ -1,0 +1,59 @@
+<launch>
+<!-- Use "roslaunch ME134 run_robot.launch" to start the robot -->
+  <!-- Define general parameters.  These can be overwritten by the
+       roslaunch command line. -->
+  <arg name="urdf"  default="ReceiveAssem.urdf"/>
+  <arg name="model" default="$(find ME134)/urdf/$(arg urdf)"/>
+  <arg name="cfg"   default="$(find ME134)/rviz/viewurdf.rviz" />
+
+
+  <!-- Load the URDF file into the robot_description parameter. -->
+  <param name="robot_description" textfile="$(arg model)"/>
+
+  <!-- Start the HEBI node. -->
+  <node pkg ="me134basic"
+	type="hebi"
+	name="hebi"
+	output="screen"
+	required="true">
+    <rosparam>
+      family: "Red"
+      names: ["4","5","7", "6", "1", "2", "3"]
+    </rosparam>
+  </node>
+
+  <!-- Start the demo node. -->
+  <node pkg ="ME134"
+	type="battleship.py"
+	name="demo"
+	output="screen"
+	required="true"/>
+
+  <node
+    name="usb_cam"
+    pkg="usb_cam"
+    type="usb_cam_node"
+    output="screen"
+    required="true" >
+
+    <param name="camera_name" value="logitech_cam_1"/>
+    <param name="pixel_format" value="yuyv"/>
+    <param name="image_width" value="1920"/>
+    <param name="image_height" value="1080"/>
+  </node>
+  
+  <node
+    name="display"
+    pkg="detector_demo"
+    type="display.py"
+    output="screen"
+    required="true" />
+
+  <node
+    name="viewer"
+    pkg="rqt_image_view"
+    type="rqt_image_view"
+    required="true" />
+
+
+</launch>

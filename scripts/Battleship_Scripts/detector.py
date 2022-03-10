@@ -54,7 +54,7 @@ class Detector:
 
         self.detections_msg = ManyDetections()
 
-        self.blobpub = rospy.Publisher('blob_loc', aruco_center, queue_size=10)
+        self.blobpub = rospy.Publisher('/blob_loc', aruco_center, queue_size=10)
 
         # Prepare OpenCV bridge used to translate ROS Image message to OpenCV
         # image array.
@@ -77,6 +77,8 @@ class Detector:
         self.last_detection = rospy.Time.now()
 
         self.servo = rospy.Rate(100)
+        
+        self.blob_sub = rospy.Subscriber('/usb_cam/image_raw', Image,self.find_xyz)
     
 
     #
@@ -116,8 +118,8 @@ class Detector:
 
         # Detect.
         (corners, ids, rejected) = cv2.aruco.detectMarkers(self.image, dict_aruco, parameters=params)
-        print(corners)
-        print(ids)
+        #print(corners)
+        #print(ids)
         
         if ids is None:
             raise ValueError('No Aruco Markers Detected!')
@@ -168,7 +170,7 @@ class Detector:
             cv2.putText(self.image, str(markerid), txt,
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, textcolor, 2)
 
-            print("ArUco marker ID:", markerid)
+            #print("ArUco marker ID:", markerid)
             i = i + 2
             j = j + 1
 
@@ -197,7 +199,7 @@ class Detector:
             elif self.marker_id[i] == 1:
                 p1 = (p0[0], p0[1] + 0.555)
                 a1 = (self.center_values[coord[i,0]], self.center_values[coord[i,1]])
-            elif self.marker_id[i] == 7:
+            elif self.marker_id[i] == 2:
                 p2 = (p0[0] - 0.555, p0[1])
                 a2 = (self.center_values[coord[i,0]], self.center_values[coord[i,1]])
             elif self.marker_id[i] == 3:
@@ -217,9 +219,10 @@ class Detector:
             points = cv2.perspectiveTransform(coords, self.M)
             rospy.loginfo(points[0,0,:])
             self.blobpub.publish(points[0,0,:])
-            return points[0,0,:]
+            # return points[0,0,:]
         else:
             return sack_loc
+            #self.blobpub.publish(sack_loc, points[0,0,:])
 
 
     def sack_detector(self, data):
@@ -253,7 +256,7 @@ class Detector:
         thresh = cv2.dilate(thresh, kernel, iterations=5)
         
         # Publish the image viewed by the camera
-        self.images_pub.publish(self.bridge.cv2_to_imgmsg(thresh, 'mono8'))
+        # self.images_pub.publish(self.bridge.cv2_to_imgmsg(thresh, 'mono8'))
 
         # Find contours within the thresholded image
         contours, _ = cv2.findContours(
@@ -302,8 +305,10 @@ class Detector:
         rospy.Subscriber('/usb_cam/image_raw', Image,
                          self.find_xyz)
 
-        while not rospy.is_shutdown():
-            self.servo.sleep()
+        
+
+        #while not rospy.is_shutdown():
+        #    self.servo.sleep()
     
 
     ###############################################################################

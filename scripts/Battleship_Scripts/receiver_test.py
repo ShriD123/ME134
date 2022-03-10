@@ -317,9 +317,9 @@ class Receiver:
         rospy.loginfo('Hello! I heard %s', msg.data)
         # Exit wait if wait is true
         if self.is_waiting:
-            xy_sackpos = rospy.wait_for_message('/blob_loc', aruco_center)
-            print(xy_sackpos)
-            self.hackysack_pos = np.array([xy_sackpos.data[0] - 0.11, xy_sackpos.data[1], 0.025 + 0.12]).reshape((3, 1))
+            # xy_sackpos = rospy.wait_for_message('/blob_loc', aruco_center)
+            # print(xy_sackpos)
+            # self.hackysack_pos = np.array([xy_sackpos.data[0] - 0.11, xy_sackpos.data[1], 0.025 + 0.12]).reshape((3, 1))
             # Populate spline with new trajectory
             self.compute_spline()
             self.is_waiting = False

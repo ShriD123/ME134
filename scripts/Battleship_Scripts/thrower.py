@@ -11,10 +11,10 @@ import numpy as np
 from sensor_msgs.msg   import JointState
 from std_msgs.msg import String
 from urdf_parser_py.urdf import Robot
+#from ME134.msg import array
 from splines import CubicSpline, Goto, Hold, Stay, QuinticSpline, Goto5
 
-'''This code encapsulates the functionality for the thrower arm as well as its
-corresponding error sensing and the necessary subscribers for itself.'''
+'''VERSION OF THROWER CODE INTENDED ONLY FOR TESTING THROWER WITH VELOCITY.'''
 
 
 ###############################################################################
@@ -87,39 +87,43 @@ class Thrower:
     #
     # Initialize.
     #
-    def __init__(self):
+    def __init__(self, init_pos):
         # Collect the motor names, which defines the dofs (useful to know)
         self.motors = ['Red/4', 'Red/5']
         self.dofs = len(self.motors)
         
-        # Create a publisher to send the joint commands.        
+        # Create a publisher to send the joint commands. 
+        # TODO: When moving to battleship, will want to remove these
+        
         #--- FOR RVIZ TESTING ONLY
         #self.pub = rospy.Publisher("/joint_states", JointState, queue_size=5)
+        #!-- END RVIZ TESTING
+        
         #--- FOR ACTUAL ROBOT
-        self.pub = rospy.Publisher("/hebi_thrower/joint_commands", JointState, queue_size=5)
+        #self.pub = rospy.Publisher("/hebi_thrower/joint_commands", JointState, queue_size=5)
         self.trpub = rospy.Publisher("/tr", String, queue_size=5)
         
         rospy.sleep(0.25)
         
         #--- FOR ACTUAL ROBOT
         # Create subscribers for the general case and events.
-        self.sub = rospy.Subscriber('/hebi_thrower/joint_states', JointState, self.callback_actual, queue_size=5)
+        #self.sub = rospy.Subscriber('/hebi_thrower/joint_states', JointState, self.callback_actual, queue_size=5)
         
         # Callback event for exit wait condition
         self.sub_exitwait = rospy.Subscriber('/rt', String, self.callback_exitwait)
         
         # # Find the starting positions. 
-        msg = rospy.wait_for_message('/hebi_thrower/joint_states', JointState)
-        for i in range(self.dofs):
-            if (msg.name[i] != self.motors[i]):
-                raise ValueError("Motor names don't match")
-        self.pos_init = np.array(msg.position).reshape((self.dofs, 1))
+        # msg = rospy.wait_for_message('/hebi_thrower/joint_states', JointState)
+        # for i in range(self.dofs):
+        #     if (msg.name[i] != self.motors[i]):
+        #         raise ValueError("Motor names don't match")
+        self.pos_init = np.array(init_pos).reshape((self.dofs, 1))
         
         #--- FOR RVIZ TESTING ONLY
         #self.pos_init = np.array([np.pi, 0.0]).reshape((2, 1))
         #!-- END RVIZ TESTING
 
-        self.callback_actual(msg)
+        #self.callback_actual(msg)
 
         # TODO: Create the necessary subscribers for the general case and events.
         
@@ -132,6 +136,9 @@ class Thrower:
 
         # Instantiate the Kinematics
         #self.kin = kin.Kinematics(robot, 'world', 'tip')
+
+        self.curr_pos = init_pos
+        self.curr_vel = np.array([0.0,0.0]).reshape((2,1))
 
         # Initialize current time
         self.curr_t = 0.0
@@ -224,7 +231,8 @@ class Thrower:
 
         # Send the command (with the current time).
         cmdmsg.header.stamp = rospy.Time.now()
-        self.pub.publish(cmdmsg)
+        #self.pub.publish(cmdmsg)
+        return self.curr_pos, self.curr_vel, self.curr_accel
 
 
 
@@ -278,7 +286,7 @@ class Thrower:
         # TRAVEL TIME FOR TRAVERSES
         self.TRAVEL_TIME = 3.0
         # HOLD
-        self.HOLD_TIME = 1.0
+        self.HOLD_TIME = 0.1
 
         # MOVE TO START POSITION (PRIOR TO LAUNCH)
         self.START = np.array([0.0, 0.0]).reshape((2, 1))

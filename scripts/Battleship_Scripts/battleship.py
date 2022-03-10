@@ -1,18 +1,22 @@
 #!/usr/bin/env python3
 
 import rospy
-import math
-import kinematics as kin
 import numpy as np
 
 from detector import Detector
 from receiver import Receiver
 from thrower import Thrower
-from visualize_battle import Visualization
+from visualize_battle import Visualizer
 from algorithm import Bayes
 import sys
-# sys.path.insert(1, '/home/me134/me134ws/src/ME134/scripts')
-sys.path.insert(1, '/home/133ws/src/ME134/scripts')
+
+sys.path.insert(1, '/home/me134/me134ws/src/ME134/scripts')
+import kinematics as kin
+from sensor_msgs.msg   import JointState
+
+from sensor_msgs.msg import Image
+from detector_demo.msg import SingleDetection, ManyDetections
+
 
 ''' This is the main code for the Cornhole Battleship project. This is where all
 the constituent nodes are created and the main loop is run. '''
@@ -88,10 +92,19 @@ class Battleship:
     #
     def __init__(self):
         # Initialize the major constituents
-        self.detector = Detector()
-        self.receiver = Receiver()
-        self.thrower = Thrower()
-        self.vis = Visualization()
+        self.detector = Detector(h_lims=(100, 200), s_lims=(100, 230), v_lims=(100, 250))
+
+        init_state = rospy.wait_for_message('/hebi/joint_states', JointState)
+
+        thrower_init_pos = init_state.position[0:2]
+        thrower_init_vel = init_state.velocity[0:2]
+
+        receiver_init_pos = init_state.position[2:7]
+        receiver_init_vel = init_state.velocity[2:7]
+
+        self.receiver = Receiver(receiver_init_pos)
+        self.thrower = Thrower(thrower_init_pos)
+        self.vis = Visualizer()
         self.bayes = Bayes()
 
         # Collect the motor names, which defines the dofs (useful to know)
@@ -117,23 +130,26 @@ class Battleship:
         self.vis.draw_board(self.board)
         '''
         # Create publishers and subscribers for the Detector. 
+        # Might not need these 2 publishers
         self.pub_image = rospy.Publisher('detection_images_thresh', Image, queue_size=10)
         self.pub_detect = rospy.Publisher('detections', ManyDetections, queue_size=10)
+
         self.sub_image = rospy.Subscriber('/usb_cam/image_raw', Image, self.detector.aruco_detect)
+        #self.sub_blob = rospy.Subscriber('/blob_loc', aruco_center, self.callback_detect)
 
         # Create publishers and subscribers for the Arms. Note that this combines all working motors.
-        self.pub_motors = rospy.Publisher("/joint_states", JointState, queue_size=5)
-        # self.pub_motors = rospy.Publisher("/hebi/joint_commands", JointState, queue_size=5)
+        #self.pub_motors = rospy.Publisher("/joint_states", JointState, queue_size=5)
+        self.pub_motors = rospy.Publisher("/hebi/joint_commands", JointState, queue_size=5)
         self.sub_motors = rospy.Subscriber('/hebi/joint_states', JointState, self.callback, queue_size=5)
 
         # Give some time for the publishers and subscribers to connect.
         rospy.sleep(0.50)
 
         #TODO: Move all the arms to a starting position.
-        self.THROW_START = np.array([0.0, 
+        #self.THROW_START = np.array([0.0, 
 
         #TODO: Let player choose their board (how to implement?)
-])
+#])
         #TODO: Make a noise to indicate when ready (let player take first turn?)
 
 
@@ -149,23 +165,32 @@ class Battleship:
         self.curr_t = t
 
         # Check if any detection has occurred
-        msg = self.detector.is_detect()             # Need to implement is_detect()
+        #if 
+        #msg = self.detector.is_detect()             # Need to implement is_detect()
         # TODO: Implement what to do with the corresponding detection later.
 
         # Check if both arms are waiting. Then update trajectories.
 
         # Update both receiver and thrower. All storage of info happens in those update functions.
-        q_r, qdot_r = self.receiver.update(t)
-        q_t, qdot_t = self.thrower.update(t)
-        qdotdot_r = self.receiver.gravity()              # Definitely wrong, but will want something like this
-        qdotdot_t = self.thrower.gravity()              # Definitely wrong, but will want something like this
+        q_r, qdot_r, qdotdot_r = self.receiver.update(t)
+        q_t, qdot_t, qdotdot_t  = self.thrower.update(t)
+        #qdotdot_r = self.receiver.gravity()              # Definitely wrong, but will want something like this
+        #qdotdot_t = self.thrower.gravity()              # Definitely wrong, but will want something like this
 
         # Send the command (with the current time).
-        cmdmsg.position = np.array([q_t, q_r]).reshape((self.dofs, 1))
-        cmdmsg.velocity = np.array([qdot_t, qdot_r]).reshape((self.dofs, 1))
-        cmdmsg.effort = np.array([qdotdot_t, qdotdot_r]).reshape((self.dofs, 1))
+        cmdmsg.position = np.vstack([q_t.reshape((2, 1)), q_r.reshape((5, 1))])
+        cmdmsg.velocity = np.vstack([qdot_t.reshape((2, 1)), qdot_r.reshape((5, 1))])
+        cmdmsg.effort = np.vstack([qdotdot_t.reshape((2, 1)), qdotdot_r.reshape((5, 1))])
         cmdmsg.header.stamp = rospy.Time.now()
         self.pub_motors.publish(cmdmsg)
+
+    # def callback_detect(self,msg):
+    #     if msg.blob == "No Blob":
+    #         pass
+    #     else:
+    #         pass
+
+            # Update Thrower spline ???
 
         
     #
@@ -183,39 +208,39 @@ class Battleship:
 #  Main Code
 #
 if __name__ == "__main__":
-    # # Prepare/initialize this node.
-    # rospy.init_node('Battle')
+    # Prepare/initialize this node.
+    #rospy.init_node('Battle')
 
-    # # Instantiate the battleship generator object, encapsulating all
-    # # the computation and local variables.
-    # battle = Battleship()
+    # Instantiate the battleship generator object, encapsulating all
+    # the computation and local variables.
+    battle = Battleship()
 
-    # # Prepare a servo loop at 100Hz.
-    # rate  = 100;
-    # servo = rospy.Rate(rate)
-    # dt    = servo.sleep_dur.to_sec()
-    # rospy.loginfo("Running the servo loop with dt of %f seconds (%fHz)" %
-    #               (dt, rate))
+    # Prepare a servo loop at 100Hz.
+    rate  = 100;
+    servo = rospy.Rate(rate)
+    dt    = servo.sleep_dur.to_sec()
+    rospy.loginfo("Running the servo loop with dt of %f seconds (%fHz)" %
+                  (dt, rate))
 
 
-    # # Run the servo loop until shutdown (killed or ctrl-C'ed).
-    # starttime = rospy.Time.now()
-    # while not rospy.is_shutdown():
+    # Run the servo loop until shutdown (killed or ctrl-C'ed).
+    starttime = rospy.Time.now()
+    while not rospy.is_shutdown():
 
-    #     # Current time (since start)
-    #     servotime = rospy.Time.now()
-    #     t = (servotime - starttime).to_sec()
+        # Current time (since start)
+        servotime = rospy.Time.now()
+        t = (servotime - starttime).to_sec()
 
-    #     # Update the controller.
-    #     battle.update(t)
+        # Update the controller.
+        battle.update(t)
 
-    #     # Wait for the next turn.  The timing is determined by the
-    #     # above definition of servo.
-    #     servo.sleep()
+        # Wait for the next turn.  The timing is determined by the
+        # above definition of servo.
+        servo.sleep()
 
-    board = np.zeros(5,5)
-    ship_locations = find_ships(5, [4, 3, 2])
-    for i in range(len(ship_locations)):
-        board[ship_locations[i]] = 1
+    # board = np.zeros(5,5)
+    # ship_locations = find_ships(5, [4, 3, 2])
+    # for i in range(len(ship_locations)):
+    #     board[ship_locations[i]] = 1
 
 
