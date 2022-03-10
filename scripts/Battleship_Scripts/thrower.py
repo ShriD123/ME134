@@ -13,6 +13,7 @@ from std_msgs.msg import String
 from urdf_parser_py.urdf import Robot
 #from ME134.msg import array
 from splines import CubicSpline, Goto, Hold, Stay, QuinticSpline, Goto5
+from ME134.msg import aruco_center
 
 '''VERSION OF THROWER CODE INTENDED ONLY FOR TESTING THROWER WITH VELOCITY.'''
 
@@ -89,11 +90,10 @@ class Thrower:
     #
     def __init__(self, init_pos):
         # Collect the motor names, which defines the dofs (useful to know)
-        self.motors = ['Red/4', 'Red/5']
+        self.motors = ['Red/1', 'Red/5']
         self.dofs = len(self.motors)
         
         # Create a publisher to send the joint commands. 
-        # TODO: When moving to battleship, will want to remove these
         
         #--- FOR RVIZ TESTING ONLY
         #self.pub = rospy.Publisher("/joint_states", JointState, queue_size=5)
@@ -264,10 +264,19 @@ class Thrower:
         rospy.loginfo('Hello! I heard %s', msg.data)
         # Exit wait if wait is true
         if self.is_waiting:
-            self.is_waiting = False
-            self.msg_sent = False
             # Populate spline with new trajectory
-            self.compute_spline((2, 0))
+            curr_state  = rospy.wait_for_message('/hebi/joint_states', JointState)
+            current_effort = curr_state.effort
+            if current_effort[1] > 2.15:
+                rospy.logerr('Hackysack in Thrower')
+                self.is_waiting = False
+                self.msg_sent = False
+                self.compute_spline((2, 0))
+            else:
+                rospy.logerr('No Hackysack in Thrower')
+                trmsg = "Receive"
+                self.trpub.publish(trmsg)
+                self.msg_sent = True
 
     #
     # Determine the speed and end position of the thrower for a given target position in xyz space

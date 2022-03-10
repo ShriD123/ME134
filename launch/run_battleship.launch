@@ -18,7 +18,7 @@
 	required="true">
     <rosparam>
       family: "Red"
-      names: ["4","5","7", "6", "1", "2", "3"]
+      names: ["1","5","7", "6", "4", "2", "3"]
     </rosparam>
   </node>
 

@@ -16,7 +16,7 @@
   <node
     name="detector"
     pkg="ME134"
-    type="detector.py"
+    type="detector_test.py"
     output="screen"
     required="true" />
   
