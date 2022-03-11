@@ -17,11 +17,13 @@ class Board:
     #
     # Initialize.
     #
-    def __init__(self, ship_sizes, board_size, robot_board=None, opponent_board=None):
+    def __init__(self, ship_sizes, board_size, aruco_position, robot_board=None, opponent_board=None):
         # Initialize any important variables
         self.M = board_size
         self.N = board_size
         self.ship_sizes = ship_sizes
+
+        self.board_origin = aruco_position      # FIGURE OUT LATER HOW EXACTLY TO INPUT THIS... important for board to xyz and xyz to board fns
 
         # Constants to discern between different states
         self.WATER = 0
@@ -31,13 +33,14 @@ class Board:
         self.SUNK = 4
 
         # Initialize the 5X5 boards for the robot and the opponent
-        self.opponent = np.zeros((self.M, self.N))                    # We want to actually input this somehow in battleship
-        # self.opponent = opponent_board
-        # self.robot = find_ships(board_size, self.ship_sizes)
-
+        self.robot = np.zeros((self.M, self.N))
+        self.opponent = np.zeros((self.M, self.N))    
         # Keep track of the ships for the robot and the opponent
         self.robot_ships = []        # Should be a list of indices, saving the ships... updated in find_ships
-        self.opponent_ships = []        # Will have to think about inputting one ship at a time so we can save it properly
+        self.opponent_ships = []        # Should be a list of indices, saving the ships also updated in input_opponent maybe?
+
+        # self.robot = find_ships(board_size, self.ship_sizes)
+        # self.opponent = input_opponent(self.ship_sizes, opponent_ship_list)       # Opponent ship list does not exist here
 
         # Maybe call the input opponent board function here?
 
@@ -48,23 +51,38 @@ class Board:
         if opponent_board is not None:
             self.opponent = opponent_board
 
-
     #    
     # Update the robot's board with the corresponding position and result
     #
     def update_robot_board(self, pos, result):
         # Assume result is one of the battleship constants 
-        self.robot[pos[0], pos[1]] = result
+        self.robot[pos] = result
 
-        # Check if the whole ship is sunk
+        # Check if the whole ship is sunk if it is hit
         if result == self.HIT:
-            ship_loc = None
+
             # Determine which ship that position is in
+            ship_loc = None
             for i in self.ship_sizes:
+                this_ship = self.robot_ships[i]
+                for j in range(i):
+                    if pos == this_ship[j]:
+                        ship_loc = i
 
             # Check if all parts of the ship are hit
-            # Change to sunk
-            pass
+            hit_ship = self.robot_ships[ship_loc]
+            hit_ship_size = self.ship_sizes[ship_loc]
+            hit_ship_counter = 0
+
+            for i in range(hit_ship_size):
+                if self.robot[hit_ship[i]] == self.HIT:
+                    hit_ship_counter += 1
+
+            # If all parts of the ship are hit, change ship to sunk
+            if hit_ship_counter == hit_ship_size:
+                for i in range(hit_ship_size):
+                    self.robot[hit_ship[i]] = self.SUNK
+
         # Check victory condition
         self.check_victory()
 
@@ -72,7 +90,36 @@ class Board:
     # Update the opponent's board with the corresponding position and result
     #
     def update_opponent_board(self, position, result):
-        pass
+        # Assume result is one of the battleship constants 
+        self.opponent[pos] = result
+
+        # Check if the whole ship is sunk if it is hit
+        if result == self.HIT:
+
+            # Determine which ship that position is in
+            ship_loc = None
+            for i in self.ship_sizes:
+                this_ship = self.opponent_ships[i]
+                for j in range(i):
+                    if pos == this_ship[j]:
+                        ship_loc = i
+
+            # Check if all parts of the ship are hit
+            hit_ship = self.opponent_ships[ship_loc]
+            hit_ship_size = self.ship_sizes[ship_loc]
+            hit_ship_counter = 0
+
+            for i in range(hit_ship_size):
+                if self.opponent[hit_ship[i]] == self.HIT:
+                    hit_ship_counter += 1
+
+            # If all parts of the ship are hit, change ship to sunk
+            if hit_ship_counter == hit_ship_size:
+                for i in range(hit_ship_size):
+                    self.opponent[hit_ship[i]] = self.SUNK
+
+        # Check victory condition
+        self.check_victory()
 
     #    
     # Check if either side has won, and indicate accordingly.
@@ -105,12 +152,12 @@ class Board:
         else:
             return False
 
-
     #    
     # Determine what the position of the board is in xyz space
     #
     def board_to_xyz(self, board):
         #TODO: Implement later
+        # Make the function with respect to the aruco market position closest to receiver.
         pass
 
     #    
@@ -118,6 +165,7 @@ class Board:
     #
     def xyz_to_board(self, board):
         #TODO: Implement later
+        # Make the function with respect to the aruco market position closest to receiver.
         pass
 
     #    
@@ -126,77 +174,103 @@ class Board:
     def next_target(self, board, is_cheat):
         #TODO: Implement later
         # Maybe have the cheating thing be updated by a callback function and/or subscriber?
+        # First try to do the simulation thing for battl
         pass
 
     #    
     # Input the ship locations from the visualization node and make the board
     #
-    def input_opponent(self, ship_sizes, ship_list):
-        #TODO: Implement later
-        pass
+    def input_opponent(self, ship_list):
+        # Assume ship list is a list of all the ships and their individual locations (list of lists)
+        # We may actually want to do the list of inputting here.
 
-    #
-    # Determine the ship board positions (randomly) for the robot
-    #
-    def find_ships(self, board_size, ship_sizes):
-
-        # Eventually return the list of indices corresponding to the ship
-        idx = []
-        VERTICAL = 0
-        HORIZONTAL = 1
-        ship_counter = 1
-
-        while ship_counter != len(ship_sizes):
-            loc_x = np.floor(np.random.uniform(0, board_size))
-            loc_y = np.floor(np.random.uniform(0, board_size))
-            orn = np.floor(np.random.uniform(0, 2))  
-            ship_found = False
-
-            this_ship = []
-            for i in range(ship_sizes(ship_counter)):
-                count_iter = 0
-                while not space_found:
-                    # Choose the next position for the ship
-                    if orn == VERTICAL:
-                        if (loc_y + i) < board_size:
-                            loc_x_next = loc_x
-                            loc_y_next = loc_y + i
-                        else:
-                            loc_x_next = loc_x
-                            loc_y_next = loc_y - i 
-                    elif orn == HORIZONTAL:
-                        if (loc_x + i) < board_size:
-                            loc_x_next = loc_x + i
-                            loc_y_next = loc_y 
-                        else:
-                            loc_x_next = loc_x - i
-                            loc_y_next = loc_y 
-
-                    # Test if the space is already occupied
-                    if (loc_y_next, loc_x_next) not in idx:
-                        # Note: x corresponds to cols and y corresponds to rows
-                        this_ship.append((loc_y_next, loc_x_next))
-                        space_found = True
-
-                    count_iter += 1
-                    # Test if too many iterations occur (then it's impossible to place ship, so need new loc) 
-                    if count_iter >= 50:
-                        break
-
-            idx.append(this_ship)
-            ship_counter += 1
-
-        print(idx)
+        # Check to make sure the ship sizes and the ship list line up
+        for i in range(ship_sizes):
+            if ship_sizes[i] != len(ship_list[i]):
+                raise ValueError('Ship Sizes and Ship Inputs do not match.')
         
+        # Fill in the board and the list of ships
+        self.opponent_ships = ship_list
+
+        for i in range(len(self.opponent_ships)):
+            this_ship = self.opponent_ships[i]
+            for j in range(len(this_ship)):
+                self.opponent[this_ship[j]] = self.SHIP
+
+#
+# Determine the ship board positions (randomly) for the robot
+#
+def find_ships(board_size, ship_sizes):
+
+    # Eventually return the list of indices corresponding to the ship
+    idx = []
+    VERTICAL = 0
+    HORIZONTAL = 1
+    ship_counter = 0
+
+    while ship_counter != len(ship_sizes):
+        loc_x = np.floor(np.random.uniform(0, board_size))
+        loc_y = np.floor(np.random.uniform(0, board_size))
+        orn = np.floor(np.random.uniform(0, 2))  
+
+        this_ship = []
+        for i in range(ship_sizes[ship_counter]):
+            count_iter = 0
+            space_found = False
+            while not space_found:
+                # Choose the next position for the ship
+                if orn == VERTICAL:
+                    if (loc_y + i) < board_size:
+                        loc_x_next = loc_x
+                        loc_y_next = loc_y + i
+                    else:
+                        loc_x_next = loc_x
+                        loc_y_next = (board_size - 1.0) - i 
+                elif orn == HORIZONTAL:
+                    if (loc_x + i) < board_size:
+                        loc_x_next = loc_x + i
+                        loc_y_next = loc_y 
+                    else:
+                        loc_x_next = (board_size - 1.0) - i
+                        loc_y_next = loc_y 
+
+                # Test if the space is already occupied
+                if (loc_y_next, loc_x_next) not in idx:
+                    # Note: x corresponds to cols and y corresponds to rows
+                    this_ship.append((loc_y_next, loc_x_next))
+                    space_found = True
+
+                count_iter += 1
+                # Test if too many iterations occur (then it's impossible to place ship, so need new loc) 
+                if count_iter >= 50:
+                    print('Impossible to Place Ship!')
+                    break
+
+        idx.append(this_ship)
+        ship_counter += 1
+
+    print(idx)
+    
+
+    #
+
+#
+# Create a simulation for battleship and determine the best choice for the next target
+#
+def simulate_battleship():
+    # TODO: Implement later if time. Otherwise, just implement a heuristic
+    pass
+
 
 ###############################################################################
 #
 #  Main Code
 #
 if __name__ == "__main__":
+    
     ship_sizes = [4, 3, 2]
     board_size = 5
-
+    '''
     ships = np.array([[0, 0, 0, 0, 0], 
         [1, 1, 1, 1, 0],
         [2, 2, 1, 0, 0],
@@ -221,4 +295,13 @@ if __name__ == "__main__":
     board1 = Board(ship_sizes, board_size, robot_board=ships1)
     board2 = Board(ship_sizes, board_size, robot_board=ships2)
     board3 = Board(ship_sizes, board_size, robot_board=ships3)
+    '''
 
+
+    # For testing the random generation of the ships.
+    # board = np.zeros(5,5)
+    # ship_locations = find_ships(5, [4, 3, 2])
+    # for i in range(len(ship_locations)):
+    #     board[ship_locations[i]] = 1
+
+    find_ships(board_size, ship_sizes)
