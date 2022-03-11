@@ -73,15 +73,12 @@ class Detector:
         self.upper_lims = tuple(upper_lims)
         self.lower_lims = tuple(lower_lims)
 
-        self.detection_interval_sack = 0.1
         self.detection_interval = detection_interval
         self.last_detection = rospy.Time.now()
-        self.last_detection_sack = rospy.Time.now()
 
         self.servo = rospy.Rate(100)
         
         self.blob_sub = rospy.Subscriber('/usb_cam/image_raw', Image,self.find_xyz)
-        self.last_blob = np.array([0.0, 0.0])
     
 
     #
@@ -121,7 +118,9 @@ class Detector:
 
         # Detect.
         (corners, ids, rejected) = cv2.aruco.detectMarkers(self.image, dict_aruco, parameters=params)
-
+        #print(corners)
+        #print(ids)
+        
         if ids is None:
             raise ValueError('No Aruco Markers Detected!')
         
@@ -213,26 +212,27 @@ class Detector:
         self.M = cv2.getPerspectiveTransform(coords, points)
 
         sack_loc = self.sack_detector(data)
-        if sack_loc != None:
-            if sack_loc != "No Blob":
-                pixels = np.float32([[sack_loc[0],sack_loc[1]]])
-                coords = cv2.undistortPoints(pixels, self.camK, self.camD)
-                points = cv2.perspectiveTransform(coords, self.M)
-                rospy.loginfo(points[0,0,:])
-                if np.linalg.norm(points[0,0,:] - self.last_blob) < 1e-1:
-                    self.blobpub.publish(points[0,0,:])
-                self.last_blob = points[0,0,:]
-            else:
-                return sack_loc
+
+        if sack_loc != "No Blob":
+            pixels = np.float32([[sack_loc[0],sack_loc[1]]])
+            coords = cv2.undistortPoints(pixels, self.camK, self.camD)
+            points = cv2.perspectiveTransform(coords, self.M)
+            rospy.loginfo(points[0,0,:])
+            self.blobpub.publish(points[0,0,:])
+            # return points[0,0,:]
+        else:
+            return sack_loc
+            #self.blobpub.publish(sack_loc, points[0,0,:])
 
 
     def sack_detector(self, data):
         # Check if the detector should be run (has long enough passed since
         # the last detection?).
-        if self.detection_interval_sack is not None and (rospy.Time.now() - self.last_detection_sack).to_sec() < self.detection_interval_sack:
+        if self.detection_interval is not None \
+                and (rospy.Time.now() - self.last_detection).to_sec() < self.detection_interval:
             return
 
-        self.last_detection_sack = rospy.Time.now()
+        self.last_detection = rospy.Time.now()
 
         # Convert ROS Image message to OpenCV image array.
         #img = self.bridge.imgmsg_to_cv2(data, 'bgr8')
@@ -307,9 +307,19 @@ class Detector:
 
         
 
-        #while not rospy.is_shutdown():
-        #    self.servo.sleep()
+        while not rospy.is_shutdown():
+           self.servo.sleep()
     
+
+    ###############################################################################
+    #
+    #  Main Code
+    #
+    def main(self):
+        #TODO: Implement this when encapsulating the functionality into the Detector object
+        # for use in the Battleship class.
+        pass
+
 
 
 ###############################################################################

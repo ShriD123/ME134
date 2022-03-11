@@ -25,7 +25,7 @@
 
   <!-- Start the demo node. -->
   <node pkg ="ME134"
-	type="thrower_test.py"
+	type="thrower.py"
 	name="demo_thrower"
 	output="screen"
 	required="true"/>
