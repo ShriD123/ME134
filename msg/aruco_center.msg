@@ -1,2 +1,3 @@
 string blob
-float32[]  data
+float32[]  datax
+float32[]  datay

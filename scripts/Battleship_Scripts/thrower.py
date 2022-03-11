@@ -267,12 +267,22 @@ class Thrower:
             # Populate spline with new trajectory
             curr_state  = rospy.wait_for_message('/hebi/joint_states', JointState)
             current_effort = curr_state.effort
-            if current_effort[1] > 2.15:
-                rospy.logerr('Hackysack in Thrower')
-                self.is_waiting = False
-                self.msg_sent = False
-                self.compute_spline((2, 0))
-            else:
+            sack_holder_array = rospy.wait_for_message('/blob_loc', aruco_center)
+
+            for ind,locx in enumerate(sack_holder_array.datax):
+                locy = sack_holder_array.datay[ind]
+                if (locx < 0.67 and locx > 0.58 and locy > -0.22 and locy < -0.17):
+                    if current_effort[1] > 2.15:
+                        rospy.logerr('Hackysack in Thrower')
+                        self.is_waiting = False
+                        self.msg_sent = False
+                        self.compute_spline((2, 0))
+                        sack_in_thrower = True
+                        break
+                else:
+                    sack_in_thrower = False
+            
+            if not sack_in_thrower:
                 rospy.logerr('No Hackysack in Thrower')
                 trmsg = "Receive"
                 self.trpub.publish(trmsg)

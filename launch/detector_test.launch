@@ -4,7 +4,7 @@
     pkg="usb_cam"
     type="usb_cam_node"
     output="screen"
-    required="true" >
+    required="true">
 
     <param name="camera_name" value="logitech_cam_1"/>
     <param name="pixel_format" value="yuyv"/>

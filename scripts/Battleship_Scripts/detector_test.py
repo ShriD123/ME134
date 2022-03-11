@@ -42,8 +42,8 @@ class Detector:
                       np.rad2deg(np.arctan(msg.height/2/self.camK[1][1])*2))
 
         # Arrays that hold the center location and ids of 4 aruco markers
-        self.marker_id = np.zeros(4)
-        self.center_values = np.zeros(8)
+        self.marker_id = np.zeros(5)
+        self.center_values = np.zeros(10)
         
         # Prepare the detection publisher and detection message.
         # See Msg/SingleDetection.msg and Msg/ManyDetections.msg for details.
@@ -73,12 +73,15 @@ class Detector:
         self.upper_lims = tuple(upper_lims)
         self.lower_lims = tuple(lower_lims)
 
+        self.detection_interval_sack = 0.1
         self.detection_interval = detection_interval
         self.last_detection = rospy.Time.now()
+        self.last_detection_sack = rospy.Time.now()
 
         self.servo = rospy.Rate(100)
         
         self.blob_sub = rospy.Subscriber('/usb_cam/image_raw', Image,self.find_xyz)
+        self.last_blob = np.array([0.0, 0.0])
     
 
     #
@@ -118,9 +121,7 @@ class Detector:
 
         # Detect.
         (corners, ids, rejected) = cv2.aruco.detectMarkers(self.image, dict_aruco, parameters=params)
-        #print(corners)
-        #print(ids)
-        
+
         if ids is None:
             raise ValueError('No Aruco Markers Detected!')
         
@@ -190,9 +191,10 @@ class Detector:
         self.aruco_detect(data)
 
         # Close to thrower, far from receiver
-        coord = np.array([[0,1],[2,3],[4,5],[6,7]])
-        p0 = (-0.055, 0.115)
-        for i in [0,1,2,3]:
+        coord = np.array([[0,1],[2,3],[4,5],[6,7], [8, 9]])
+        # p0 = (-0.085, 0.12)
+        p0 = (0.0, 0.0)
+        for i in [0, 1, 2, 3, 4]:
             if self.marker_id[i] == 0:
                 p0 = p0
                 a0 = (self.center_values[coord[i,0]], self.center_values[coord[i,1]])
@@ -205,34 +207,49 @@ class Detector:
             elif self.marker_id[i] == 3:
                 p3 = (p0[0] - 0.555, p0[1] + 0.555)
                 a3 = (self.center_values[coord[i,0]], self.center_values[coord[i,1]])
+            elif self.marker_id[i] == 4:
+                pixels_a4 = np.float32(self.center_values[coord[i,0]], self.center_values[coord[i,1]])
         
         pixels = np.float32([[a0],[a1],[a2],[a3]])
         coords = cv2.undistortPoints(pixels, self.camK, self.camD)
         points = np.float32([p0, p1, p2, p3])
         self.M = cv2.getPerspectiveTransform(coords, points)
 
-        sack_loc = self.sack_detector(data)
+        coords_a4 = cv2.undistortPoints(pixels_a4, self.camK, self.camD)
+        points_a4 = cv2.perspectiveTransform(coords_a4, self.M)
 
-        if sack_loc != "No Blob":
-            pixels = np.float32([[sack_loc[0],sack_loc[1]]])
-            coords = cv2.undistortPoints(pixels, self.camK, self.camD)
-            points = cv2.perspectiveTransform(coords, self.M)
-            rospy.loginfo(points[0,0,:])
-            self.blobpub.publish(points[0,0,:])
-            # return points[0,0,:]
-        else:
-            return sack_loc
-            #self.blobpub.publish(sack_loc, points[0,0,:])
+        sack_locs = self.sack_detector(data)
+        if sack_locs != []:
+            if sack_locs != "No Blob":
+                table_coord_array = np.zeros((len(sack_locs[:,0]),2))
+                for i in range(len(sack_locs)):
+                    pixels = np.float32([[sack_locs[i,0],sack_locs[i,1]]])
+                    coords = cv2.undistortPoints(pixels, self.camK, self.camD)
+                    points = cv2.perspectiveTransform(coords, self.M)
+                    table_coord_array[i,0] = points[0,0,0] - points_a4[0,0,0] - 0.72
+                    table_coord_array[i,1] = points[0,0,1] - points_a4[0,0,1]
+                rospy.loginfo(table_coord_array)
+                if table_coord_array.shape == self.last_blob.shape:
+                    blobs_to_rem = []
+                    for j in range(len(table_coord_array)):
+                        i = len(table_coord_array) - j - 1
+                        if np.linalg.norm(table_coord_array[i] - self.last_blob[i]) < 1e-1:
+                            blobs_to_rem.append(i)
+                    for i in blobs_to_rem:
+                        np.delete(table_coord_array, i, 0)
+                self.blobpub.publish("Blob", table_coord_array[:,0].flatten(),table_coord_array[:,1].flatten())
+                self.last_blob = table_coord_array
+            else:
+                self.blobpub.publish(sack_locs, points[0,0,:])
 
 
     def sack_detector(self, data):
         # Check if the detector should be run (has long enough passed since
         # the last detection?).
-        if self.detection_interval is not None \
-                and (rospy.Time.now() - self.last_detection).to_sec() < self.detection_interval:
-            return
+        if self.detection_interval_sack is not None and (rospy.Time.now() - self.last_detection_sack).to_sec() < self.detection_interval_sack:
+            return []
 
-        self.last_detection = rospy.Time.now()
+        self.last_detection_sack = rospy.Time.now()
 
         # Convert ROS Image message to OpenCV image array.
         #img = self.bridge.imgmsg_to_cv2(data, 'bgr8')
@@ -276,11 +293,13 @@ class Detector:
             area = cv2.contourArea(contour)
             if area > 30:
                 circular_contours.append(contour)
+
         if len(circular_contours) != 0:
+            store_xy = np.zeros((len(circular_contours),2))
             # Construct detection message.
             self.detections_msg.detections = []
-            for contour in circular_contours:
-                x, y, w, h = cv2.boundingRect(contour)
+            for i in range(len(circular_contours)):
+                x, y, w, h = cv2.boundingRect(circular_contours[i])
                 detection_msg = SingleDetection()
 
                 detection_msg.x = x + w / 2
@@ -289,10 +308,13 @@ class Detector:
                 detection_msg.size_y = h
 
                 self.detections_msg.detections.append(detection_msg)
+                store_xy[i,0] = detection_msg.x
+                store_xy[i,1] = detection_msg.y
+
 
             # Send detection message.
-            self.detections_pub.publish(self.detections_msg)
-            return detection_msg.x, detection_msg.y
+            #self.detections_pub.publish(self.detections_msg)
+            return store_xy
         else:
             stri = "No Blob"
             return stri
@@ -308,18 +330,8 @@ class Detector:
         
 
         while not rospy.is_shutdown():
-           self.servo.sleep()
+            self.servo.sleep()
     
-
-    ###############################################################################
-    #
-    #  Main Code
-    #
-    def main(self):
-        #TODO: Implement this when encapsulating the functionality into the Detector object
-        # for use in the Battleship class.
-        pass
-
 
 
 ###############################################################################

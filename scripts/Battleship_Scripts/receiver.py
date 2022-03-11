@@ -122,7 +122,10 @@ class Receiver:
     
         # Initialize the trajectory
         self.START = np.array([-0.50, 0.0, 0.3 + 0.12]).reshape((3, 1))
-        self.DROPOFF = np.array([0.50, -0.08, 0.40 + 0.12]).reshape((3, 1))           # TODO: Change to match thrower START
+        self.START_joint = np.array(self.kin.ikin(self.START, np.array([1.69, 1.41, -1.56]).reshape((3,1)))).reshape((3,1))
+        self.DROPOFF_ABOVE = np.array([0.48, -0.08, 0.40 + 0.12]).reshape((3, 1))
+        self.DROPOFF = np.array([0.48, -0.08, 0.40 + 0.02]).reshape((3, 1))
+        self.DROPOFF_ABOVE_joint = np.array(self.kin.ikin(self.DROPOFF_ABOVE, np.array([-1.56, 1.20, -1.22]).reshape((3,1)))).reshape((3, 1))
         self.Intermediate = np.array([0, 0.5, 0.30 + 0.12]).reshape((3, 1))      
         self.gripper_theta = 0.0
 
@@ -134,7 +137,7 @@ class Receiver:
 
         # If we want to float the arm for testing
         self.float = False
-        self.TRAVEL_TIME = 3.0
+        self.TRAVEL_TIME = 7.0
         self.READY_TIME = 3.0
 
         # HOLD
@@ -264,10 +267,23 @@ class Receiver:
             
     def compute_spline(self):
         # Initialize the trajectories that we want for the loop
-        print("hello1")
         xy_sackpos = rospy.wait_for_message('/blob_loc', aruco_center)
-        print(xy_sackpos)
-        self.hackysack_pos = np.array([xy_sackpos.data[0] - 0.09, xy_sackpos.data[1], 0.025 + 0.12]).reshape((3, 1))
+        sack_found = False
+        #print(xy_sackpos)
+        while xy_sackpos.blob == "No Blob":
+            xy_sackpos = rospy.wait_for_message('/blob_loc', aruco_center)
+            print("no blob on detector range")
+        while not sack_found:
+            xy_sackpos = rospy.wait_for_message('/blob_loc', aruco_center)
+            for ind,locx in enumerate(xy_sackpos.datax):
+                locy = xy_sackpos.datay[ind]
+                if (locx < 0.60 and locx > - 0.65 and locy > 0.10 and locy < 0.70):
+                    self.hackysack_pos = np.array([xy_sackpos.datax[ind] - 0.08, xy_sackpos.datay[ind], 0.025 + 0.12]).reshape((3, 1))
+                    sack_found = True
+                    break
+            print("all sacks out of receiver reach")
+
+        #self.hackysack_pos = curr_sack
         z_offset = np.array([0.0, 0.0, 0.0 + 0.12]).reshape((3,1))
         hackysack_above = self.hackysack_pos + z_offset
                         # Actual Pos to Start Pos
@@ -281,11 +297,12 @@ class Receiver:
                         # Hackysack to Above Hackysack
             Goto5(self.curr_t+2*self.TRAVEL_TIME+self.OFFSET_TIME+self.GRASP_TIME, self.hackysack_pos, hackysack_above, self.OFFSET_TIME,'Task'),  
                         # Above Hackysack to Thrower Pos
-            Goto5(self.curr_t+2*self.TRAVEL_TIME+2*self.OFFSET_TIME+self.GRASP_TIME, hackysack_above, self.DROPOFF, self.TRAVEL_TIME,'Task'),   
+            Goto5(self.curr_t+2*self.TRAVEL_TIME+2*self.OFFSET_TIME+self.GRASP_TIME, hackysack_above, self.DROPOFF_ABOVE, self.TRAVEL_TIME,'Task'),   
                         #  
-            Goto5(self.curr_t+3*self.TRAVEL_TIME+2*self.OFFSET_TIME+self.GRASP_TIME, self.DROPOFF, self.DROPOFF, self.GRASP_TIME,'GripOff'),
-            Goto5(self.curr_t+3*self.TRAVEL_TIME+2*self.OFFSET_TIME+2*self.GRASP_TIME, self.DROPOFF, self.Intermediate, self.TRAVEL_TIME,'Task'),                           # TODO: IMPLEMENT THE GRASPING PART
-            Goto5(self.curr_t+4*self.TRAVEL_TIME+2*self.OFFSET_TIME+2*self.GRASP_TIME, self.Intermediate, self.START, self.TRAVEL_TIME,'Task')])                               # Return to start
+            Goto5(self.curr_t+3*self.TRAVEL_TIME+2*self.OFFSET_TIME+self.GRASP_TIME, self.DROPOFF_ABOVE, self.DROPOFF, self.OFFSET_TIME,'Task'),  
+            Goto5(self.curr_t+3*self.TRAVEL_TIME+3*self.OFFSET_TIME+self.GRASP_TIME, self.DROPOFF, self.DROPOFF, self.GRASP_TIME,'GripOff'),
+            Goto5(self.curr_t+3*self.TRAVEL_TIME+3*self.OFFSET_TIME+2*self.GRASP_TIME, self.DROPOFF, self.DROPOFF_ABOVE, self.OFFSET_TIME,'Task'),
+            Goto5(self.curr_t+3*self.TRAVEL_TIME+4*self.OFFSET_TIME+2*self.GRASP_TIME, self.DROPOFF_ABOVE_joint, self.START_joint, self.TRAVEL_TIME,'Joint')])                               # Return to start
                          
     
 ###############################################################################
