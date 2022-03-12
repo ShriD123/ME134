@@ -52,7 +52,7 @@ class Board:
             self.opponent = opponent_board
 
     #    
-    # Update the robot's board with the corresponding position and result
+    # Update the robot's board with the corresponding position and result of the throw
     #
     def update_robot_board(self, pos, result):
         # Assume result is one of the battleship constants 
@@ -180,6 +180,26 @@ class Board:
     #    
     # Input the ship locations from the visualization node and make the board
     #
+    def input_robot(self, ship_list):
+        # Assume ship list is a list of all the ships and their individual locations (list of lists)
+        # We may actually want to do the list of inputting here.
+
+        # Check to make sure the ship sizes and the ship list line up
+        for i in range(ship_sizes):
+            if ship_sizes[i] != len(ship_list[i]):
+                raise ValueError('Ship Sizes and Ship Inputs do not match.')
+        
+        # Fill in the board and the list of ships
+        self.robot_ships = ship_list
+
+        for i in range(len(self.robot_ships)):
+            this_ship = self.robot_ships[i]
+            for j in range(len(this_ship)):
+                self.robot[this_ship[j]] = self.SHIP
+
+    #    
+    # Input the ship locations from the visualization node and make the board
+    #
     def input_opponent(self, ship_list):
         # Assume ship list is a list of all the ships and their individual locations (list of lists)
         # We may actually want to do the list of inputting here.
@@ -206,58 +226,63 @@ def find_ships(board_size, ship_sizes):
     idx = []
     VERTICAL = 0
     HORIZONTAL = 1
-    ship_counter = 0
 
-    while ship_counter != len(ship_sizes):
-        loc_x = np.floor(np.random.uniform(0, board_size))
-        loc_y = np.floor(np.random.uniform(0, board_size))
-        orn = np.floor(np.random.uniform(0, 2))  
+    for i, e in enumerate(ship_sizes):
+        valid_ship = []
+        ship_not_found = True
 
-        this_ship = []
-        for i in range(ship_sizes[ship_counter]):
-            count_iter = 0
-            space_found = False
-            while not space_found:
-                # Choose the next position for the ship
+        while ship_not_found:
+            # Setup the random ship parameters
+            this_ship = []
+            overlap = False
+            loc_x = int(np.floor(np.random.uniform(0, board_size)))
+            loc_y = int(np.floor(np.random.uniform(0, board_size)))
+            orn = int(np.floor(np.random.uniform(0, 2)))
+
+            # Find the possible ship positions from the current location
+            for k in range(e):
                 if orn == VERTICAL:
-                    if (loc_y + i) < board_size:
+                    if (loc_y + k) < board_size:
                         loc_x_next = loc_x
-                        loc_y_next = loc_y + i
+                        loc_y_next = loc_y + k
                     else:
                         loc_x_next = loc_x
-                        loc_y_next = (board_size - 1.0) - i 
+                        loc_y_next = (board_size - 1) - k 
                 elif orn == HORIZONTAL:
-                    if (loc_x + i) < board_size:
-                        loc_x_next = loc_x + i
+                    if (loc_x + k) < board_size:
+                        loc_x_next = loc_x + k
                         loc_y_next = loc_y 
                     else:
-                        loc_x_next = (board_size - 1.0) - i
+                        loc_x_next = (board_size - 1) - k
                         loc_y_next = loc_y 
+                # Note: y corresponds to rows, x corresponds to columns
+                this_ship.append((loc_y_next, loc_x_next))
+            
+            # See if the ship overlaps with any ships already made
+            for x in range(len(idx)):
+                for y in this_ship:
+                    if y in idx[x]:
+                        overlap = True
+            
+            # Add the ship to the list if there's no overlap
+            if not overlap:
+                ship_not_found = False
+                valid_ship = this_ship
 
-                # Test if the space is already occupied
-                if (loc_y_next, loc_x_next) not in idx:
-                    # Note: x corresponds to cols and y corresponds to rows
-                    this_ship.append((loc_y_next, loc_x_next))
-                    space_found = True
-
-                count_iter += 1
-                # Test if too many iterations occur (then it's impossible to place ship, so need new loc) 
-                if count_iter >= 50:
-                    print('Impossible to Place Ship!')
-                    break
-
-        idx.append(this_ship)
-        ship_counter += 1
-
-    print(idx)
+        idx.append(valid_ship)  
     
+    return idx
+            
 
-    #
 
 #
 # Create a simulation for battleship and determine the best choice for the next target
 #
 def simulate_battleship():
+    N = 1e8
+    board_sum = np.zeros()
+    for i in range(N):
+        pass
     # TODO: Implement later if time. Otherwise, just implement a heuristic
     pass
 
@@ -304,4 +329,17 @@ if __name__ == "__main__":
     # for i in range(len(ship_locations)):
     #     board[ship_locations[i]] = 1
 
-    find_ships(board_size, ship_sizes)
+    list1 = find_ships(board_size, ship_sizes)
+    print(list1)
+    board = np.zeros((board_size, board_size))
+
+    for i in range(len(list1)):
+        this_ship = list1[i]
+        for j in range(len(this_ship)):
+            print(this_ship[j])
+            idx, idy = this_ship[j]
+            board[int(idx),int(idy)] = 1
+    
+    print(board)
+    
+
