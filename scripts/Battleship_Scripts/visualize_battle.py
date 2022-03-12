@@ -19,6 +19,7 @@ the current board and guesses on the monitor and plays sounds for hits or misses
 # Turn matplotlib interactive mode on
 plt.ion()
 
+plt.rcParams.update({'font.family':'monospace'})
 
 ###############################################################################
 #
@@ -37,7 +38,10 @@ class Visualizer:
         self.N = 5
 
         #Create all the necessary global parameters for the visualization
-        self.fig, (self.human_ax, self.robot_ax) = plt.subplots(1, 2)
+        self.fig, (self.robot_ax, self.human_ax) = plt.subplots(1, 2)
+        
+        # Set size of figure
+        self.fig.set_size_inches(10, 6)
         
         self.XTICKS = ['1', '2', '3', '4', '5']
         self.TICKS_POS = [0.5, 1.5, 2.5, 3.5, 4.5]
@@ -52,11 +56,11 @@ class Visualizer:
         # Show a blank display
         color = np.ones((self.M,self.N,3))
         
-        # Initialize human board
+        # Initialize human board (the board which the human's ships are on, and the robot is trying to hit)
         self.human_ax.imshow(color, aspect='equal', interpolation='none',
                 extent=[0, self.N, 0, self.M], zorder=0)
         
-        # Initialize robot board
+        # Initialize robot board (the board which the robot's ships are on, and the human is trying to hit)
         self.robot_ax.imshow(color, aspect='equal', interpolation='none',
                 extent=[0, self.N, 0, self.M], zorder=0)
 
@@ -75,10 +79,10 @@ class Visualizer:
         
 
 
-    #    
-    # Draw Board
-    #
-    def draw_board(self, board, ships, ship_sizes, player='robot'):
+    ########################################################################    
+    # FUNTION TO DRAW BOARD
+    ######################################################################## 
+    def draw_board(self, board, ships, ship_sizes=[4, 3, 2], player='robot'):
         """
         Board is 5x5 np array of state of board, for example:
         board = np.array([[0, 0, 0, 0, 0], 
@@ -132,9 +136,7 @@ class Visualizer:
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
         
-
-        
-    # Mark Position
+    # FUNCTION TO PUT A DOT AT DESIRED LOCATION SPECIFIED
     
     def draw_nextmove(self, loc, player='robot'):
         """ Draws X at position specified
@@ -153,6 +155,9 @@ class Visualizer:
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
     
+    #-----------------------------------------------------------------------    
+    # HELPER FUNCTIONS FOR draw_board
+    #-----------------------------------------------------------------------
     def draw_ships(self, ships, ax):
         """ Helper Function to draw ships """
         # Mark the ships
@@ -187,9 +192,7 @@ class Visualizer:
             rect.set_clip_path(rect)
             # Fill for ship rectangle
             rectfill = patches.Rectangle((minx, miny), xlength, ylength, edgecolor='none', facecolor=shipcolor, alpha=0.1)
-            ax.add_patch(rectfill)
-    
-        
+            ax.add_patch(rectfill) 
 
     def draw_grid(self):
         """ Helper Function to draw grid and titles on plot """
@@ -208,32 +211,46 @@ class Visualizer:
         self.robot_ax.yaxis.set_minor_locator(minor_locator)
         self.robot_ax.grid(which='minor', zorder=1.0)
         self.robot_ax.set_title('Robot')
+        
+        # Main title
+        self.fig.suptitle('BATTLESHIP')
 
         
-    
+    ########################################################################    
+    # FUNTION TO ALLOW USER TO CHOOSE SHIP POSITIONS
+    ######################################################################## 
     def choose_ship_position(self):
         """ This function enables the user to choose where to place ships
-        NOTE: THIS IS A BLOCKING FUNCTION
+        NOTE: THIS IS A BLOCKING FUNCTION THAT BLOCKS UNTIL USER IS DONE PICKING SHIPS
+        This creates a GUI that allows the user to position their ships
+        Returns user chosen positions after user clicks 'done'
+        in list of tuple form [[(x11, y11), (x12, y12), (x13, y13)], [(x21, y21), (x22, y22)], and so on]
         """
-        sg.theme('Default1')    # Keep things interesting for your users
+        sg.theme('Default1')
+        # Layout of the GUI is defined here   
 
-        layout = [[sg.Frame('Ship to Move', [[sg.Radio('Battleship', 'ship_sel', default=True)],
-                                          [sg.Radio('Cruiser', 'ship_sel', default=False)],
-                                          [sg.Radio('Destroyer', 'ship_sel', default=False)]])],
-                  [sg.Frame('Move Ship', [[sg.Button('Up')],
-                                          [sg.Button('Left'), sg.Button('Right')],
-                                          [sg.Button('Down')],
-                                          [sg.Button('Counterclockwise'), sg.Button('Clockwise')]])],
+        layout = [[sg.Frame('Ship to Move', [[sg.Radio('Battleship (4)', 'ship_sel', key='Battleship', default=True)],
+                                          [sg.Radio('Cruiser (3)', 'ship_sel', key='Cruiser', default=False)],
+                                          [sg.Radio('Destroyer (2)', 'ship_sel', key='Destroyer', default=False)]],
+                                          element_justification='left'),
+                  sg.Frame('Move Ship', [[sg.Button('UP', key='Up')],
+                                          [sg.Button('L', key='Left'), sg.Button('R', key='Right')],
+                                          [sg.Button('DN', key='Down')],
+                                          [sg.Button('CCW', key='Counterclockwise'), sg.Button('CW', key='Clockwise')]],
+                                          element_justification='center')],
                   [sg.Button('Done')]]      
 
-        window = sg.Window('Window that stays open', layout)      
+        window = sg.Window('CONFIGURE YOUR SHIPS', layout)      
 
         ship_sizes = [4, 3, 2]
         # Locations of the three ships
-        battleship = [[(0, 0), (1, 0), (2, 0), (3, 0)]]
-        cruiser = [(1, 1), (2, 1), (3, 1)]
+        battleship = [(0, 0), (1, 0), (2, 0), (3, 0)]
+        cruiser = [(1, 2), (2, 2), (3, 2)]
         destroyer = [(4, 3), (4, 4)]
         ships = [battleship, cruiser, destroyer]
+        
+        # Draw the board
+        self.draw_board(np.zeros((5, 5)), ships, player='human') 
 
         while True:                             
             event, values = window.read() 
@@ -242,27 +259,30 @@ class Visualizer:
                 break      
             # If we want to move the ship
             if event in ['Up', 'Left', 'Right', 'Down', 'Clockwise', 'Counterclockwise']:
-                # Create copy of ships
-                newship = copy.deepcopy(ships)
-                if values['Battleship'] == True:
+                # Create copy of ships that we will modify
+                newships = copy.deepcopy(ships)
+                # Which ship we want to move, based on radio button selection
+                if   values['Battleship'] == True:
                     newships[0] = self.move_ship(newships[0], move=event)
                 elif values['Cruiser'] == True:
                     newships[1] = self.move_ship(newships[1], move=event)
                 elif values['Destroyer'] == True:
                     newships[2] = self.move_ship(newships[2], move=event)
-                
-                    
-            elif event == 'Draw Robot':
-                board = np.random.randint(5, size=(5, 5))
-                visualize.draw_board(board, ships, ship_sizes, player='robot')
-            elif event == 'Draw Human':
-                board = np.random.randint(5, size=(5, 5))
-                visualize.draw_board(board, ships, ship_sizes, player='human')
-            elif event == 'Do something else':
-                print('Doing something else')
+                self.draw_board(np.zeros((5, 5)), newships, player='human') 
+                time.sleep(0.05)
+                # Check validity of new configuration
+                if self.check_ship_validity(newships):
+                    # If the new configuration with the moved ships is valid, change ships to newships
+                    ships = newships
+                # Plot the ship locations
+                self.draw_board(np.zeros((5, 5)), ships, player='human')          
 
         window.close()
-    
+        return ships
+        
+    #-----------------------------------------------------------------------    
+    # HELPER FUNCTIONS FOR choose_ship_position
+    #-----------------------------------------------------------------------
     def move_ship(self, ship, move='Up'):
         """ Helper function to move ship"""
         # Convert to np array for operations
@@ -276,29 +296,34 @@ class Visualizer:
             newship_arr[:, 0] -= 1
         elif move == 'Right':
             newship_arr[:, 0] += 1
-        elif move == 'Counterclockwise':
-            # To rotate counterclockwise, (x, y) = (-y, x)
-            # Swap x and y
-            newship_arr[:, [1, 0]] = newship_arr[:, [0, 1]]
-            # Negative the x position
-            newship_arr[:, 0] = -newship_arr[:, 0]
-        elif move == 'Clockwise':
-            # To rotate clockwise, (x, y) = (y, -x)
-            # Swap x and y
-            newship_arr[:, [1, 0]] = newship_arr[:, [0, 1]]
-            # Negative the y position
-            newship_arr[:, 1] = -newship_arr[:, 1]
+        elif move in ['Counterclockwise', 'Clockwise']:
+            # Want to rotate about lower left corner, so shift to origin first
+            (minx, miny) = (np.amin(newship_arr[:, 0]), np.amin(newship_arr[:, 1]))
+            newship_arr -= np.array((minx, miny))
+            if move == 'Counterclockwise':
+                # To rotate counterclockwise, (x, y) = (-y, x)
+                # Swap x and y
+                newship_arr[:, [1, 0]] = newship_arr[:, [0, 1]]
+                # Negative the x position
+                newship_arr[:, 0] = -newship_arr[:, 0]
+            elif move == 'Clockwise':
+                # To rotate clockwise, (x, y) = (y, -x)
+                # Swap x and y
+                newship_arr[:, [1, 0]] = newship_arr[:, [0, 1]]
+                # Negative the y position
+                newship_arr[:, 1] = -newship_arr[:, 1]
+            # Shift back to position
+            newship_arr += np.array((minx, miny))
         
         # Convert numpy array back to list of tuples
         newship = []
         for loc in newship_arr:
             newship.append(tuple(loc.flatten()))
         # Return new ship locations
-        return newship
-            
+        return newship           
     
     def check_ship_validity(self, ships):
-        """ Helper function to check whether ships are valid or not """
+        """ Helper function to check whether list of ships are valid or not """
         # ships is a list of list of tuples, e.g. [(1, 2), (1, 3)]
         for ship in ships:
             ship_array = np.array(ship)
@@ -318,7 +343,7 @@ class Visualizer:
         
         flattened_ships = [item for sublist in ships for item in sublist]
         seen = []
-        # Check if there are any overlapping points (points that are the same)
+        # Check if there are any overlapping points between ships (points that are the same)
         for location in flattened_ships:
             # IF any of the locations is the same as the the ones already iterated over, exit and return false
             # Round to nearest integer for consistency
@@ -362,8 +387,9 @@ if __name__ == "__main__":
     ship_sizes = [4, 3, 2]
     ships = [[(0, 3), (1, 3), (2, 3), (3, 3)], [(0, 2), (1, 2), (2, 2)], [(4, 0), (4, 1)]]
 
-    
-    vis.draw_board(board, ships, ship_sizes, player='robot')
+    human_ships = vis.choose_ship_position()
+    print(human_ships)
+    vis.draw_board(board, ships, player='robot')
     print('drawing board')
     
     time.sleep(0.5)
@@ -372,9 +398,10 @@ if __name__ == "__main__":
     print('drawing robot next move')
     time.sleep(0.5)
     
-    vis.draw_board(board, ships, ship_sizes, player='human')
+    vis.draw_board(board, human_ships, player='human')
     print('drawing human')
-    time.sleep(0.5)
+    time.sleep(2)
+
     
     #while True:
     #    vis.draw_board(np.random.randint(5, size=(5, 5)), ships, ship_sizes, player = 'robot')

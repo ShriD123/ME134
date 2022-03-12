@@ -43,10 +43,10 @@ while True:                             # The Event Loop
         break      
     elif event == 'Draw Robot':
         board = np.random.randint(5, size=(5, 5))
-        visualize.draw_board(board, ships, ship_sizes, player='robot')
+        visualize.draw_board(board, ships, player='robot')
     elif event == 'Draw Human':
         board = np.random.randint(5, size=(5, 5))
-        visualize.draw_board(board, ships, ship_sizes, player='human')
+        visualize.draw_board(board, ships, player='human')
     elif event == 'Do something else':
         print('Doing something else')
 
