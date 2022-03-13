@@ -7,7 +7,7 @@ from detector import Detector
 from receiver import Receiver
 from thrower import Thrower
 from visualize_battle import Visualizer
-from algorithm import Bayes
+from algorithm import Board
 import sys
 
 sys.path.insert(1, '/home/me134/me134ws/src/ME134/scripts')
@@ -27,61 +27,6 @@ the constituent nodes are created and the main loop is run. '''
 #  Helper Functions
 #
 
-#
-# Determine the ship board positions
-#
-def find_ships(self, board_size, ship_sizes):
-
-    # Eventually return the list of indices corresponding to the ship
-    idx = []
-    VERTICAL = 0
-    HORIZONTAL = 1
-    ship_counter = 1
-
-    while ship_counter != len(ship_sizes):
-        loc_x = np.floor(np.random.uniform(0, board_size))
-        loc_y = np.floor(np.random.uniform(0, board_size))
-        orn = np.floor(np.random.uniform(0, 2))  
-        ship_found = False
-
-        this_ship = []
-        for i in range(ship_sizes(ship_counter)):
-            count_iter = 0
-            while not space_found:
-                # Choose the next position for the ship
-                if orn == VERTICAL:
-                    if (loc_y + i) < board_size:
-                        loc_x_next = loc_x
-                        loc_y_next = loc_y + i
-                    else:
-                        loc_x_next = loc_x
-                        loc_y_next = loc_y - i 
-                elif orn == HORIZONTAL:
-                    if (loc_x + i) < board_size:
-                        loc_x_next = loc_x + i
-                        loc_y_next = loc_y 
-                    else:
-                        loc_x_next = loc_x - i
-                        loc_y_next = loc_y 
-
-                # Test if the space is already occupied
-                if (loc_y_next, loc_x_next) not in idx:
-                    # Note: x corresponds to cols and y corresponds to rows
-                    this_ship.append((loc_y_next, loc_x_next))
-                    space_found = True
-
-                count_iter += 1
-                # Test if too many iterations occur (then it's impossible to place ship, so need new loc) 
-                if count_iter >= 50:
-                    break
-
-        idx.append(this_ship)
-        ship_counter += 1
-
-    print(idx)
-
-
-
 ###############################################################################
 #
 #  Battleship Class
@@ -93,6 +38,7 @@ class Battleship:
     def __init__(self):
         # Initialize the major constituents
         self.detector = Detector(h_lims=(100, 200), s_lims=(100, 230), v_lims=(100, 250))
+        board_origin = self.detector(soemthing soemtrhing)
         init_state = rospy.wait_for_message('/hebi/joint_states', JointState)
 
         # Move the arms to the initial position given their current positions.
@@ -101,8 +47,9 @@ class Battleship:
         self.receiver = Receiver(receiver_init_pos)
         self.thrower = Thrower(thrower_init_pos)
         self.vis = Visualizer()
-        self.bayes = Bayes()
+        self.algorithm = Board()
 
+        # Connect the algorithm and the visualizer 
         # Collect the motor names, which defines the dofs (useful to know)
         # First 2 are Thrower motors, last 5 are receiver motors (with last being for gripper)
         self.motors = ['Red/1', 'Red/5', 'Red/7', 'Red/6', 'Red/4', 'Red/2', 'Red/3']
@@ -136,10 +83,6 @@ class Battleship:
 
         # Give some time for the publishers and subscribers to connect.
         rospy.sleep(0.50)
-
-        #TODO: Let player choose their board (how to implement?)
-#])
-        #TODO: Make a noise to indicate when ready (let player take first turn?)
 
 
     #    
