@@ -2,6 +2,7 @@
 
 import rospy
 import math
+import time 
 import numpy as np
 #from playsound import playsound
 
@@ -17,13 +18,14 @@ class Board:
     #
     # Initialize.
     #
-    def __init__(self, ship_sizes, board_size, aruco_position, robot_board=None, opponent_board=None):
+    def __init__(self, ship_sizes, board_size, aruco_position=None, robot_board=None, opponent_board=None):
         # Initialize any important variables
         self.M = board_size
         self.N = board_size
         self.ship_sizes = ship_sizes
 
         self.board_origin = aruco_position      # FIGURE OUT LATER HOW EXACTLY TO INPUT THIS... important for board to xyz and xyz to board fns
+        self.is_cheat = False                   # Make a publisher and subscriber to update this on the fly
 
         # Constants to discern between different states
         self.WATER = 0
@@ -32,17 +34,15 @@ class Board:
         self.MISS = 3
         self.SUNK = 4
 
-        # Initialize the 5X5 boards for the robot and the opponent
+        # Initialize the 5X5 boards and ship list for the robot and the opponent
+        self.robot_ships = find_ships(board_size, self.ship_sizes)
+        # self.opponent_ships = input_opponent_ships()                              # TODO: Implement a good way to input the opponent's ship
+        self.opponent_ships = find_ships(board_size, self.ship_sizes)
+
         self.robot = np.zeros((self.M, self.N))
-        self.opponent = np.zeros((self.M, self.N))    
-        # Keep track of the ships for the robot and the opponent
-        self.robot_ships = []        # Should be a list of indices, saving the ships... updated in find_ships
-        self.opponent_ships = []        # Should be a list of indices, saving the ships also updated in input_opponent maybe?
-
-        # self.robot = find_ships(board_size, self.ship_sizes)
-        # self.opponent = input_opponent(self.ship_sizes, opponent_ship_list)       # Opponent ship list does not exist here
-
-        # Maybe call the input opponent board function here?
+        self.input_robot(self.robot_ships)
+        self.opponent = np.zeros((self.M, self.N))  
+        self.input_opponent(self.opponent_ships)
 
         # If we ever need to manually adjust the boards
         if robot_board is not None:
@@ -52,10 +52,11 @@ class Board:
             self.opponent = opponent_board
 
     #    
-    # Update the robot's board with the corresponding position and result of the throw
+    # Update the robot's board with the corresponding hackysack position
     #
-    def update_robot_board(self, pos, result):
-        # Assume result is one of the battleship constants 
+    def update_robot_board(self, pos):
+        result = self.check_robot_result(pos)
+
         self.robot[pos] = result
 
         # Check if the whole ship is sunk if it is hit
@@ -87,10 +88,11 @@ class Board:
         self.check_victory()
 
     #
-    # Update the opponent's board with the corresponding position and result
+    # Update the opponent's board with the corresponding hackysack position
     #
-    def update_opponent_board(self, position, result):
-        # Assume result is one of the battleship constants 
+    def update_opponent_board(self, pos):
+        result = self.check_opponent_result(pos)
+
         self.opponent[pos] = result
 
         # Check if the whole ship is sunk if it is hit
@@ -153,14 +155,6 @@ class Board:
             return False
 
     #    
-    # Determine what the position of the board is in xyz space
-    #
-    def board_to_xyz(self, board):
-        #TODO: Implement later
-        # Make the function with respect to the aruco market position closest to receiver.
-        pass
-
-    #    
     # Determine what a xyz space corresponds to board position
     #
     def xyz_to_board(self, board):
@@ -171,57 +165,119 @@ class Board:
     #    
     # Determine the next target based off the current board space.
     #
-    def next_target(self, board, is_cheat):
-        #TODO: Implement later
-        # Maybe have the cheating thing be updated by a callback function and/or subscriber?
-        # First try to do the simulation thing for battl
-        pass
+    def next_target(self, is_cheat):
+        # TODO: Input the list of indices in terms of probability order later.
+        prob_map = []
+        target_pos = 0          # Return this as an index for now... see what the thrower compute spline does
+
+        # Use to determine if should use opponent's board or not
+        if self.is_cheat:
+            data_threshold = 0.75
+        else:
+            data_threshold = 0.25
+
+        rand_val = np.random.uniform()
+
+        if rand_val < data_threshold:
+            # Find a ship position not already hit in opponent's grid
+            for i in range(self.M):
+                for j in range(self.N):
+                    if self.opponent[i,j] == self.SHIP:
+                        return (i,j)
+        else:
+            # Use the next value in the probability map, if not already hit
+            for k in enumerate(prob_map):
+                if self.opponent[k] == self.SHIP:
+                    return k
+
+        # If no ships remaining, we should be victorious
+        self.check_victory()
+
+        print(self.opponent)
+        raise ValueError('No Ships Remaining and No Victory?')
 
     #    
-    # Input the ship locations from the visualization node and make the board
+    # Input the robot ship locations during initialization and make the board
     #
     def input_robot(self, ship_list):
         # Assume ship list is a list of all the ships and their individual locations (list of lists)
-        # We may actually want to do the list of inputting here.
 
         # Check to make sure the ship sizes and the ship list line up
-        for i in range(ship_sizes):
-            if ship_sizes[i] != len(ship_list[i]):
+        for i in range(len(self.ship_sizes)):
+            if self.ship_sizes[i] != len(ship_list[i]):
                 raise ValueError('Ship Sizes and Ship Inputs do not match.')
-        
-        # Fill in the board and the list of ships
-        self.robot_ships = ship_list
 
-        for i in range(len(self.robot_ships)):
-            this_ship = self.robot_ships[i]
+        for i in range(len(ship_list)):
+            this_ship = ship_list[i]
             for j in range(len(this_ship)):
                 self.robot[this_ship[j]] = self.SHIP
 
     #    
-    # Input the ship locations from the visualization node and make the board
+    # Input the opponent ship locations during initialization and make the board
     #
     def input_opponent(self, ship_list):
         # Assume ship list is a list of all the ships and their individual locations (list of lists)
-        # We may actually want to do the list of inputting here.
 
         # Check to make sure the ship sizes and the ship list line up
-        for i in range(ship_sizes):
-            if ship_sizes[i] != len(ship_list[i]):
+        for i in range(len(self.ship_sizes)):
+            if self.ship_sizes[i] != len(ship_list[i]):
                 raise ValueError('Ship Sizes and Ship Inputs do not match.')
-        
-        # Fill in the board and the list of ships
-        self.opponent_ships = ship_list
 
-        for i in range(len(self.opponent_ships)):
-            this_ship = self.opponent_ships[i]
+        for i in range(len(ship_list)):
+            this_ship = ship_list[i]
             for j in range(len(this_ship)):
                 self.opponent[this_ship[j]] = self.SHIP
+
+    # 
+    # Check the hackysack position on robot board and see what result in the game that gives you
+    #
+    def check_robot_result(self, hackysack_pos):
+        # Find the board position pertaining to the hackysack
+        board_pos = xyz_to_board(hackysack_pos)         # Should return a tuple of indices on the board
+
+        if self.robot[board_pos] == self.WATER:
+            return self.MISS
+        elif self.robot[board_pos] == self.SHIP:
+            return self.HIT
+        else:
+            # Position already been hit, so just return that again
+            return self.robot[board_pos]
+        
+    # 
+    # Check the hackysack position on opponent board and see what result in the game that gives you
+    #
+    def check_opponent_result(self, hackysack_pos):
+        # Find the board position pertaining to the hackysack
+        board_pos = xyz_to_board(hackysack_pos)         # Should return a tuple of indices on the board
+
+        if self.opponent[board_pos] == self.WATER:
+            return self.MISS
+        elif self.opponent[board_pos] == self.SHIP:
+            return self.HIT
+        else:
+            # Position already been hit, so just return that again
+            return self.opponent[board_pos]
+
+    # 
+    # Get the robot board and ships (for visualization purposes)
+    # 
+    def get_robot_state(self):
+        return self.robot, self.robot_ships
+    
+    # 
+    # Get the opponent board and ships (for visualization purposes)
+    # 
+    def get_opponent_state(self):
+        return self.opponent, self.opponent_ships
+############################################################################################
+#
+#   HELPER FUNCTIONS
+#
 
 #
 # Determine the ship board positions (randomly) for the robot
 #
 def find_ships(board_size, ship_sizes):
-
     # Eventually return the list of indices corresponding to the ship
     idx = []
     VERTICAL = 0
@@ -273,18 +329,30 @@ def find_ships(board_size, ship_sizes):
     
     return idx
             
-
-
 #
 # Create a simulation for battleship and determine the best choice for the next target
 #
-def simulate_battleship():
-    N = 1e8
-    board_sum = np.zeros()
+def simulate_battleship(board_size, ship_sizes):
+    N = int(2.5e7)
+    start_time = time.time()
+    board_sum = np.zeros((board_size, board_size))
     for i in range(N):
-        pass
-    # TODO: Implement later if time. Otherwise, just implement a heuristic
-    pass
+        # Create the random board for this iteration
+        list_ships = find_ships(board_size, ship_sizes)
+
+        # Sum the locations of that ship.
+        for j in range(len(list_ships)):
+            for k, val in enumerate(list_ships[j]):
+                board_sum[val] += 1
+
+        print('Iterations Complete: ', i+1, end='\r')
+    board_prob = board_sum / N
+    print()
+    print(board_sum)
+    print(board_prob)
+
+    time_taken = time.time() - start_time
+    print('Time Taken: ',time_taken)
 
 
 ###############################################################################
@@ -295,6 +363,8 @@ if __name__ == "__main__":
     
     ship_sizes = [4, 3, 2]
     board_size = 5
+    simulate_battleship(board_size, ship_sizes)
+
     '''
     ships = np.array([[0, 0, 0, 0, 0], 
         [1, 1, 1, 1, 0],
@@ -321,25 +391,3 @@ if __name__ == "__main__":
     board2 = Board(ship_sizes, board_size, robot_board=ships2)
     board3 = Board(ship_sizes, board_size, robot_board=ships3)
     '''
-
-
-    # For testing the random generation of the ships.
-    # board = np.zeros(5,5)
-    # ship_locations = find_ships(5, [4, 3, 2])
-    # for i in range(len(ship_locations)):
-    #     board[ship_locations[i]] = 1
-
-    list1 = find_ships(board_size, ship_sizes)
-    print(list1)
-    board = np.zeros((board_size, board_size))
-
-    for i in range(len(list1)):
-        this_ship = list1[i]
-        for j in range(len(this_ship)):
-            print(this_ship[j])
-            idx, idy = this_ship[j]
-            board[int(idx),int(idy)] = 1
-    
-    print(board)
-    
-
