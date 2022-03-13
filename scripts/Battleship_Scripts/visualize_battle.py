@@ -14,6 +14,7 @@ import PySimpleGUI as sg
 import copy
 import tkinter as tk
 import tkinter.ttk as ttk
+from algorithm import find_ships
 
 '''This code encapsulates the functionality for the visualization aspects that show
 the current board and guesses on the monitor and plays sounds for hits or misses.'''
@@ -262,7 +263,7 @@ class Visualizer:
     ######################################################################## 
     def choose_ship_position(self):
         """ This function enables the user to choose where to place ships
-        NOTE: THIS IS A BLOCKING FUNCTION THAT BLOCKS UNTIL USER IS DONE PICKING SHIPS
+        NOTE: THIS IS A BLOCKING FUNCTION THAT BLOCKS UNTIL USER IS DONE PICKING SHIPS, NOW DEPRECATED
         This creates a GUI that allows the user to position their ships
         Returns user chosen positions after user clicks 'done'
         in list of tuple form [[(x11, y11), (x12, y12), (x13, y13)], [(x21, y21), (x22, y22)], and so on]
@@ -321,11 +322,14 @@ class Visualizer:
         window.close()
         return ships
     
-    def choose_ship_position_rand(self, ships):
+    def choose_ship_position_rand(self):
         """NOTE: THIS IS A BLOCKING FUNCTION
             Displays the ship configuration given, and a prompt asking if user is ok with this configuration
             Returns True if user clicks Yes, otherwise returns False
         """
+        ships_sizes = [4, 3, 2]
+        ships = find_ships(self.M, ship_sizes)
+
         self.draw_board(np.zeros((5, 5)), ships, player='human')
         
         sg.theme('Default1')
@@ -336,9 +340,9 @@ class Visualizer:
 
         window = sg.Window('CONFIGURE YOUR SHIPS', layout)      
         
-        userok = True
+        userok = False
 
-        while True:                             
+        while not userok:                             
             event, values = window.read() 
             print(event, values)       
             if event == sg.WIN_CLOSED:
@@ -347,11 +351,11 @@ class Visualizer:
                 userok = True
                 break
             if event == 'no':
-                userok = False
-                break      
+                ships = find_ships(self.M, ship_sizes)
+                self.draw_board(np.zeros((5, 5)), ships, player='human')
         window.close()
         
-        return userok
+        return ships
         
     #-----------------------------------------------------------------------    
     # HELPER FUNCTIONS FOR choose_ship_position
