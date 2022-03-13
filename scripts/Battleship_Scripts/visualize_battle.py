@@ -12,6 +12,8 @@ from playsound import playsound
 import time
 import PySimpleGUI as sg
 import copy
+import tkinter as tk
+import tkinter.ttk as ttk
 
 '''This code encapsulates the functionality for the visualization aspects that show
 the current board and guesses on the monitor and plays sounds for hits or misses.'''
@@ -20,6 +22,42 @@ the current board and guesses on the monitor and plays sounds for hits or misses
 plt.ion()
 
 plt.rcParams.update({'font.family':'monospace'})
+
+###############################################################################
+# Scoreboard
+
+class Scoreboard(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        # configure the root window
+        self.title('BATTLESHIP SCOREBOARD')
+        
+        headerfont = ('Arial', 35)
+        textfont = ('Arial', 25)
+
+        # label
+        self.robotlabel = ttk.Label(self, text='ROBOT', font=headerfont)
+        self.humanlabel = ttk.Label(self, text='HUMAN', font=headerfont)
+        
+        # Scores
+        self.robothits = ttk.Label(self, text='0 Hits', font=textfont)
+        self.robotmiss = ttk.Label(self, text='0 Miss', font=textfont)
+        
+        self.humanhits = ttk.Label(self, text='0 Hits', font=textfont)
+        self.humanmiss = ttk.Label(self, text='0 Miss', font=textfont)
+        
+        self.robotlabel.grid(row=0, column=0, padx=10, pady=10)
+        self.humanlabel.grid(row=0, column=1, padx=10, pady=10)
+        self.robothits.grid(row=1, column=0)
+        self.robotmiss.grid(row=2, column=0)
+        self.humanhits.grid(row=1, column=1)
+        self.humanmiss.grid(row=2, column=1)
+        
+    def update_score(self, board, player='robot'):
+        """ Updates score based on board """
+        # TODO pass the state of the board and update the scoreboard based on readings
+        pass
+        
 
 ###############################################################################
 #
@@ -78,6 +116,8 @@ class Visualizer:
                 rowcol = self.YTICKS[j] + self.XTICKS[i]
                 self.cell_lookup[rowcol] = (i, j)
         
+        # Initialize the scoreboard
+        self.score = Scoreboard()
 
 
     ########################################################################    
@@ -291,7 +331,8 @@ class Visualizer:
         sg.theme('Default1')
         # Layout of the GUI is defined here   
 
-        layout = [[sg.Frame('Configure Board', [[sg.Button('Use This Configuration', key='yes'), sg.Button('Generate another Configuration', key='no')]])]]      
+        layout = [[sg.Text('A random configuration has been generated for you.')],
+        [sg.Frame('Configure Board', [[sg.Button('Use This Configuration', key='yes'), sg.Button('Generate another Configuration', key='no')]])]]      
 
         window = sg.Window('CONFIGURE YOUR SHIPS', layout)      
         
@@ -393,12 +434,14 @@ class Visualizer:
     #    
     # Make Sounds of Hit/Miss
     #
-    # def make_sound(self, hit=False):
+    def make_sound(self, hit=False):
     #     #TODO: Download the hit or miss audio & insert path
-    #     if hit:
-    #         playsound('hit.mp3')
-    #     else:
-    #         playsound('miss.mp3')
+        # Need to set False in playsound so that it will not block
+        if hit:
+            playsound('hit.mp3', False)
+        else:
+            playsound('miss.wav', False)
+    
 
 
 ###############################################################################
@@ -427,6 +470,9 @@ if __name__ == "__main__":
     print('drawing board')
     
     time.sleep(0.5)
+    vis.make_sound(hit=True)
+    time.sleep(3.0)
+    vis.make_sound(hit=False)
     
     vis.draw_nextmove(np.array([[1, 2]]), player='robot')
     print('drawing robot next move')
@@ -435,7 +481,7 @@ if __name__ == "__main__":
     vis.draw_board(board, human_ships, player='human')
     print('drawing human')
     time.sleep(2)
-
+    
     
     #while True:
     #    vis.draw_board(np.random.randint(5, size=(5, 5)), ships, ship_sizes, player = 'robot')
