@@ -10,6 +10,7 @@ import kinematics as kin
 import numpy as np
 from sensor_msgs.msg   import JointState
 from std_msgs.msg import String
+from std_msgs.msg import Float32
 from urdf_parser_py.urdf import Robot
 #from ME134.msg import array
 from splines import CubicSpline, Goto, Hold, Stay, QuinticSpline, Goto5
@@ -89,7 +90,7 @@ class Thrower:
     #
     def __init__(self):
         # Collect the motor names, which defines the dofs (useful to know)
-        self.motors = ['Red/4', 'Red/5']
+        self.motors = ['Red/1', 'Red/5']
         self.dofs = len(self.motors)
         
         # Create a publisher to send the joint commands. 
@@ -170,6 +171,30 @@ class Thrower:
         self.is_waiting = False
 
         self.msg_sent = False
+
+        self.speed = np.array([2.098,2.098,2.098,2.065,2.065,2.038,2.038,2.048,2.048,2.081,2.081,\
+                            2.214, 2.214, 2.181,2.181,2.162,2.162,2.164,2.164, 2.181, 2.181,\
+                            2.313,2.313,2.297,2.297,2.279,2.279, 2.280,2.280,2.297,2.297,\
+                            2.446, 2.446, 2.412, 2.412, 2.397,2.397,2.412,2.412,2.412,2.412,\
+                            2.561, 2.561, 2.545, 2.545,2.514, 2.514, 2.528, 2.528, 2.545, 2.545])
+        self.speed_add = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.012, 0.012, 0.01, 0.01, 0.01, 0.01,\
+                            -0.02, -0.02, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,\
+                             0.01, 0.01, 0.01, 0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,\
+                             -0.01, -0.01, 0.0, 0.0, -0.01, -0.01, -0.01, -0.01, 0.01, 0.01,\
+                            0.0, 0.0, 0.0, 0.0, 0.01, 0.01, 0.0, 0.0, 0.0, 0.0])
+        self.speed += self.speed_add
+        self.angle = np.array([0.21, 0.21, 0.21,0.1, 0.1, 0.02, 0.02, -0.11, -0.11, -0.23, -0.23,\
+                            0.19, 0.19, 0.09, 0.09, 0.02, 0.02, -0.1, -0.1, -0.2, -0.2,\
+                            0.17, 0.17, 0.08, 0.08, 0.02, 0.02, -0.09, -0.09, -0.18, -0.18,\
+                            0.16, 0.16, 0.06, 0.06, 0.02, 0.02, -0.07, -0.07, -0.17, -0.17,\
+                            0.15, 0.15, 0.06, 0.06, 0.02, 0.02, -0.06, -0.06, -0.15, -0.15]) + np.ones(51)*0.02
+        self.angle_add = np.array([0.0, 0.0, 0.0,0.02, 0.02, 0.0, 0.0, 0.0, 0.0, 0.02, 0.02,\
+                            0.02, 0.02, 0.02, 0.02, 0.0, 0.0, 0.0, 0.0, 0.02, 0.02,\
+                            0.02, 0.02, 0.04, 0.04, 0.0, 0.0, 0.02, 0.02, 0.02, 0.02,\
+                            0.05, 0.05, 0.05, 0.05, 0.0, 0.0, 0.0, 0.0, 0.03, 0.03,\
+                            0.03, 0.03, 0.05, 0.05, 0.02, 0.02, 0.02, 0.02, 0.03, 0.03])
+        self.angle += self.angle_add
+        self.ind = 0
         
         
     #
@@ -197,11 +222,12 @@ class Thrower:
             # If the current segment is done, shift to the next.
             if (t-self.trajectory.start_time()) >= self.trajectory.duration():
                 if self.trajectory.is_empty():
-                    self.is_waiting = True
-                    if not self.msg_sent:
-                        trmsg = "Receive"
-                        self.trpub.publish(trmsg)
-                        self.msg_sent = True
+                    self.compute_spline((2, 0))
+                    self.is_waiting = False
+                    # if not self.msg_sent:
+                    #     trmsg = "Receive"
+                    #     self.trpub.publish(trmsg)
+                    #     self.msg_sent = True
                 else:
                     self.trajectory.pop_spline()
 
@@ -285,16 +311,22 @@ class Thrower:
         self.HOLD_TIME = 1.0
 
         # MOVE TO START POSITION (PRIOR TO LAUNCH)
-        self.START = np.array([0.0, 0.0]).reshape((2, 1))
+        self.START = np.array([self.angle[self.ind], 0.0]).reshape((2, 1))
         
         # LAUNCH THE PROJECTILE
         
         # CHANGE THE EXIT VELOCITY HERE!
-        self.exit_velocity = 1.92 # Exit velocity in Radians per second (Velocity of HEBI motor)
-        self.release_point = np.pi/4.7 # Where projectile is released (Position of HEBI motor)
+        #message = rospy.wait_for_message('/vel', Float32)#float(input('Input Exit Vel'))#1.92 # Exit velocity in Radians per second (Velocity of HEBI motor)
+        #self.exit_velocity = message.data
+
+        self.exit_velocity = self.speed[self.ind]
+        #print(type(self.exit_velocity))
+        self.release_point = np.pi/10 # Where projectile is released (Position of HEBI motor)
+
         
         # Point of release
-        self.LAUNCH = np.array([0.0, self.release_point]).reshape((2, 1))
+        self.LAUNCH = np.array([self.angle[self.ind], self.release_point]).reshape((2, 1))
+        
         # Launch time has to be adjusted based on exit velocity. Want the resulting spline to be monotonically increasing
         # Time must be more than Distance / Exit Velocity
         self.LAUNCH_TIME = 2.0*self.release_point / self.exit_velocity
@@ -307,9 +339,10 @@ class Thrower:
 
         self.stop_point = self.release_point*1.3
         self.STOP_TIME = 2*(self.stop_point-self.release_point) / self.exit_velocity
-        self.FINAL = np.array([0.0, self.stop_point]).reshape((2, 1))
+        self.FINAL = np.array([self.angle[self.ind], self.stop_point]).reshape((2, 1))
         self.final_vel = np.array([0.0, 0.0]).reshape((2, 1))
         self.final_accel = np.array([0.0, 0.0]).reshape((2, 1))
+        self.ind += 1
         
         # STACK IMPLEMENTATION
         self.trajectory = Trajectory([

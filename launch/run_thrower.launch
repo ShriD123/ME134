@@ -19,13 +19,13 @@
 	required="true">
     <rosparam>
       family: "Red"
-      names: ["4", "5"]
+      names: ["1", "5"]
     </rosparam>
   </node>
 
   <!-- Start the demo node. -->
   <node pkg ="ME134"
-	type="thrower.py"
+	type="thrower_test.py"
 	name="demo_thrower"
 	output="screen"
 	required="true"/>
