@@ -67,7 +67,8 @@ class Visualizer:
         
         self.draw_grid()
         
-        self.fig.canvas.draw()
+        # Draw 
+        self.fig.canvas.draw_idle()
         self.fig.canvas.flush_events()
         
         # Create dictionary to convert A1 notation to (x, y)
@@ -92,7 +93,7 @@ class Visualizer:
             [0, 0, 0, 3, 1]])
         Ship_sizes are sizes of the ships used, for example:
         ship_sizes = [4, 3, 2]
-        Ships is list of tuples defining (x, y) location of ships, for example:
+        Ships is list of list of tuples defining (x, y) location of ships, for example:
         ships = [[(0, 3), (1, 3), (2, 3), (3, 3)], [(0, 2), (1, 2), (2, 2)], [(4, 0), (4, 1)]]
         """
         
@@ -133,7 +134,7 @@ class Visualizer:
         self.draw_grid()
         
         # Force the figure to pop up.
-        self.fig.canvas.draw()
+        self.fig.canvas.draw_idle()
         self.fig.canvas.flush_events()
         
     # FUNCTION TO PUT A DOT AT DESIRED LOCATION SPECIFIED
@@ -152,7 +153,7 @@ class Visualizer:
         self.draw_grid()
         
         # Force the figure to pop up
-        self.fig.canvas.draw()
+        self.fig.canvas.draw_idle()
         self.fig.canvas.flush_events()
     
     #-----------------------------------------------------------------------    
@@ -213,7 +214,7 @@ class Visualizer:
         self.robot_ax.set_title('Robot')
         
         # Main title
-        self.fig.suptitle('BATTLESHIP')
+        self.fig.suptitle('BATTLESHIP', fontsize=20)
 
         
     ########################################################################    
@@ -279,6 +280,37 @@ class Visualizer:
 
         window.close()
         return ships
+    
+    def choose_ship_position_rand(self, ships):
+        """NOTE: THIS IS A BLOCKING FUNCTION
+            Displays the ship configuration given, and a prompt asking if user is ok with this configuration
+            Returns True if user clicks Yes, otherwise returns False
+        """
+        self.draw_board(np.zeros((5, 5)), ships, player='human')
+        
+        sg.theme('Default1')
+        # Layout of the GUI is defined here   
+
+        layout = [[sg.Frame('Configure Board', [[sg.Button('Use This Configuration', key='yes'), sg.Button('Generate another Configuration', key='no')]])]]      
+
+        window = sg.Window('CONFIGURE YOUR SHIPS', layout)      
+        
+        userok = True
+
+        while True:                             
+            event, values = window.read() 
+            print(event, values)       
+            if event == sg.WIN_CLOSED:
+                break  
+            if event == 'yes':
+                userok = True
+                break
+            if event == 'no':
+                userok = False
+                break      
+        window.close()
+        
+        return userok
         
     #-----------------------------------------------------------------------    
     # HELPER FUNCTIONS FOR choose_ship_position
@@ -386,9 +418,11 @@ if __name__ == "__main__":
 
     ship_sizes = [4, 3, 2]
     ships = [[(0, 3), (1, 3), (2, 3), (3, 3)], [(0, 2), (1, 2), (2, 2)], [(4, 0), (4, 1)]]
-
+    
     human_ships = vis.choose_ship_position()
     print(human_ships)
+    userok = vis.choose_ship_position_rand(human_ships)
+    print(userok)
     vis.draw_board(board, ships, player='robot')
     print('drawing board')
     
