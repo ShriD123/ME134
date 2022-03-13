@@ -192,6 +192,7 @@ class Visualizer:
         self.draw_ships(ships, ax)
         
         # Draw the boxes
+        # TRANSPOSE IF X AND Y AXES ARE FLIPPED
         ax.imshow(color, aspect='equal', interpolation='none',
                 extent=[0, self.N, 0, self.M], zorder=0)
 
@@ -234,7 +235,7 @@ class Visualizer:
             # Cast into numpy array of form np.array([[1, 2], [1, 3]])
             ship_array = np.array(ship)
             # Find corners of ship
-            
+            # SWITCH THESE IF X AND Y AXES ARE FLIPPED
             (minx, miny) = (np.amin(ship_array[:, 0]), np.amin(ship_array[:, 1]))
             (maxx, maxy) = (np.amax(ship_array[:, 0]), np.amax(ship_array[:, 1]))
             
