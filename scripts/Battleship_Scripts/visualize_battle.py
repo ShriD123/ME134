@@ -102,9 +102,9 @@ class Visualizer:
 
         #Create all the necessary global parameters for the visualization
         self.fig, (self.robot_ax, self.human_ax) = plt.subplots(1, 2)
-        
+
         # Set size of figure
-        self.fig.set_size_inches(10, 6)
+        #self.fig.set_size_inches(10, 6)
         
         self.XTICKS = ['1', '2', '3', '4', '5']
         self.TICKS_POS = [0.5, 1.5, 2.5, 3.5, 4.5]
@@ -121,18 +121,17 @@ class Visualizer:
         
         # Initialize human board (the board which the human's ships are on, and the robot is trying to hit)
         self.human_ax.imshow(color, aspect='equal', interpolation='none',
-                extent=[0, self.N, 0, self.M], zorder=0)
+                extent=[0, self.N, 0, self.M], zorder=0, origin='lower')
         
         # Initialize robot board (the board which the robot's ships are on, and the human is trying to hit)
         self.robot_ax.imshow(color, aspect='equal', interpolation='none',
-                extent=[0, self.N, 0, self.M], zorder=0)
+                extent=[0, self.N, 0, self.M], zorder=0, origin='lower')
 
         
         self.draw_grid()
         
         # Draw 
-        self.fig.canvas.draw_idle()
-        #self.fig.canvas.flush_events()
+        self.refresh_display()
         
         # Create dictionary to convert A1 notation to (x, y)
         self.cell_lookup = {}
@@ -194,16 +193,16 @@ class Visualizer:
         
         # Draw the boxes
         # TRANSPOSE IF X AND Y AXES ARE FLIPPED
-        ax.imshow(color, aspect='equal', interpolation='none',
-                extent=[0, self.N, 0, self.M], zorder=0)
-
+        # Have to transpose and set origin to lower to match coordinate convention of algorithm
+        ax.imshow(np.transpose(color, (1, 0, 2)), aspect='equal', interpolation='none',
+                extent=[0, self.N, 0, self.M], zorder=0, origin='lower')
+        
         self.draw_grid()
         
         # Update the player's score on the scoreboard
         self.update_scores(board, player=player)
         # Force the figure to pop up.
-        self.fig.canvas.draw_idle()
-        #self.fig.canvas.flush_events()
+        self.refresh_display()
         
     # FUNCTION TO PUT A DOT AT DESIRED LOCATION SPECIFIED
     
@@ -222,8 +221,7 @@ class Visualizer:
         
         
         # Force the figure to pop up
-        self.fig.canvas.draw_idle()
-        #self.fig.canvas.flush_events()
+        self.refresh_display()
     
     #-----------------------------------------------------------------------    
     # HELPER FUNCTIONS FOR draw_board
@@ -482,8 +480,8 @@ class Visualizer:
     def declare_winner(self, winner):
         """ Winner either ROBOT or OPPONENT """
         #self.score.declare_winner(winner)
-        self.fig.canvas.draw_idle()
-        #self.fig.canvas.flush_events()
+        
+        #self.refresh_display()
     
     def update_scores(self, board, player='robot'):
         hit_value = np.ones((5, 5)) * self.HIT
@@ -491,6 +489,12 @@ class Visualizer:
         hits = np.count_nonzero(np.isclose(board, hit_value))
         miss = np.count_nonzero(np.isclose(board, miss_value))
         #self.score.update_score(hits, miss, player=player)
+
+
+    def refresh_display(self):
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
+        #plt.show(block=True)
         
 
     
