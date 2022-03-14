@@ -42,7 +42,7 @@ class Board:
         self.SUNK = 4
 
         # Initialize the 5X5 boards and ship list for the robot and the opponent
-        self.robot_ships = find_ships(board_size, self.ship_sizes)
+        self.robot_ships = find_ships(self.M, self.ship_sizes)
         self.opponent_ships = opponent_ships
 
         self.robot = np.zeros((self.M, self.N))
@@ -104,7 +104,6 @@ class Board:
 
         if board_pos is None or result is None:
             return False, None
-
 
         self.opponent[board_pos] = result
 
@@ -217,7 +216,7 @@ class Board:
     #    
     # Determine the next target based off the current board space.
     #
-    def next_target(self, is_cheat):
+    def next_target(self):
         prob_map = [(3,3), (2,3), (3,2), (2,2), (4,3), (3,4), (4,2), (2,4), (3,1),
                     (1,3), (2,1), (1,2), (4,4), (1,1), (4,1), (1,4), (0,3), (3,0),
                     (2,0), (0,2), (4,0), (0,4), (0,1), (1,0), (0,0)]

@@ -124,20 +124,6 @@ class Thrower:
         #self.pos_init = np.array([np.pi, 0.0]).reshape((2, 1))
         #!-- END RVIZ TESTING
 
-        #self.callback_actual(msg)
-
-        # TODO: Create the necessary subscribers for the general case and events.
-        
-        # self.sub = rospy.Subscriber('/actual', JointState, self.callback_actual)
-        # self.sub_e = rospy.Subscriber('/event', String, self.callback_event)
-        
-        # Grab the robot's URDF from the parameter server.
-        # Might have to change this because we'll have multiple URDFs
-        #robot = Robot.from_parameter_server()
-
-        # Instantiate the Kinematics
-        #self.kin = kin.Kinematics(robot, 'world', 'tip')
-
         self.curr_pos = init_pos
         self.curr_vel = np.array([0.0,0.0]).reshape((2,1))
 
@@ -169,17 +155,29 @@ class Thrower:
         # If we want to float the arm
         self.float = False
 
-        self.speed = np.array([[2.098, 2.065, 2.05,  2.058, 2.091],\
-                        [2.194, 2.181, 2.162, 2.164, 2.191],\
-                        [2.323, 2.307, 2.279, 2.280, 2.297],\
-                        [2.436, 2.412, 2.387, 2.402, 2.422],\
-                        [2.571, 2.545, 2.524, 2.528, 2.545]])
+        # self.speed = np.array([[2.098, 2.065, 2.05,  2.058, 2.091],\
+        #                 [2.194, 2.181, 2.162, 2.164, 2.191],\
+        #                 [2.323, 2.307, 2.279, 2.280, 2.297],\
+        #                 [2.436, 2.412, 2.387, 2.402, 2.422],\
+        #                 [2.571, 2.545, 2.524, 2.528, 2.545]])
 
-        self.angle = np.array([[0.23, 0.14, 0.04, -0.09, -0.19],\
-                               [0.23, 0.13, 0.04, -0.08, -0.16],\
-                               [0.21, 0.14, 0.04, -0.05, -0.14],\
-                               [0.23, 0.13, 0.04, -0.05, -0.12],\
-                               [0.2,  0.13, 0.06, -0.02, -0.1]])
+        # self.angle = np.array([[0.23, 0.14, 0.04, -0.09, -0.19],\
+        #                        [0.23, 0.13, 0.04, -0.08, -0.16],\
+        #                        [0.21, 0.14, 0.04, -0.05, -0.14],\
+        #                        [0.23, 0.13, 0.04, -0.05, -0.12],\
+        #                        [0.2,  0.13, 0.06, -0.02, -0.1]])
+
+        self.speed = np.array([[2.091, 2.058, 2.05, 2.065, 2.098],
+                               [2,191, 2.164, 2.162, 2.181, 2.194],
+                               [2.297, 2.280, 2.279, 2.307, 2.323],
+                               [2.422, 2.402, 2.387, 2.412, 2.436],
+                               [2.545, 2.528, 2.524, 2.545, 2.571]])
+        
+        self.angle = np.array([[-0.19, -0.09, 0.04, 0.14, 0.23],
+                               [-0.16, -0.08, 0.04, 0.13, 0.23],
+                               [-0.14, -0.05, 0.04, 0.14, 0.21],
+                               [-0.12, -0.05, 0.04, 0.13, 0.23],
+                               [-0.1, -0.02, 0.06, 0.13, 0.2]])
 
         
         
@@ -187,13 +185,19 @@ class Thrower:
         self.is_waiting = False
 
         self.msg_sent = False
+
+        self.target = (0, 0)
+        self.board_size = 5
         
         
     #
     # Update every 10ms!
     #
-    def update(self, t):
-        # Create an empty joint state message. TODO: Remove when integrating with battleship.py
+    def update(self, t, target):
+        # Update the next target position
+        self.target = target
+
+        # Create an empty joint state message. 
         cmdmsg = JointState()
         
         #--- FOR RVIZ TESTING ONLY
@@ -250,10 +254,6 @@ class Thrower:
         return self.curr_pos, self.curr_vel, self.curr_accel
 
 
-
-        
-
-    
     # Callback Function to set the positions based off the actual values
     def callback_actual(self, msg):
         self.curr_pos = np.array(msg.position).reshape((2, 1))
@@ -292,7 +292,7 @@ class Thrower:
                         rospy.logerr('Hackysack in Thrower')
                         self.is_waiting = False
                         self.msg_sent = False
-                        self.compute_spline((2, 0))
+                        self.compute_spline()
                         sack_in_thrower = True
                         break
                 else:
@@ -307,8 +307,7 @@ class Thrower:
     #
     # Determine the speed and end position of the thrower for a given target position in xyz space
     #
-    def compute_spline(self, target):
-        #TODO: To be implemented with a fit to a model.
+    def compute_spline(self):
         # For now, we will just use kinematic equations (once testing of arm is complete)
 
         # Initialize the state of the robot
@@ -323,22 +322,19 @@ class Thrower:
         # HOLD
         self.HOLD_TIME = 0.1
 
-        indx = np.random.randint(5)
-        indy = np.random.randint(5)
-        print(indx,indy)
-
+        print(self.target)
 
         # MOVE TO START POSITION (PRIOR TO LAUNCH)
-        self.START = np.array([self.angle[indx,indy], 0.0]).reshape((2, 1))
+        self.START = np.array([self.angle[self.target], 0.0]).reshape((2, 1))
         
         # LAUNCH THE PROJECTILE
         
         # CHANGE THE EXIT VELOCITY HERE!
-        self.exit_velocity = self.speed[indx,indy] # Exit velocity in Radians per second (Velocity of HEBI motor)
+        self.exit_velocity = self.speed[self.target] # Exit velocity in Radians per second (Velocity of HEBI motor)
         self.release_point = np.pi/10 # Where projectile is released (Position of HEBI motor)
         
         # Point of release
-        self.LAUNCH = np.array([self.angle[indx,indy], self.release_point]).reshape((2, 1))
+        self.LAUNCH = np.array([self.angle[self.target], self.release_point]).reshape((2, 1))
         # Launch time has to be adjusted based on exit velocity. Want the resulting spline to be monotonically increasing
         # Time must be more than Distance / Exit Velocity
         self.LAUNCH_TIME = 2.0*self.release_point / self.exit_velocity
@@ -351,7 +347,7 @@ class Thrower:
 
         self.stop_point = self.release_point*1.3
         self.STOP_TIME = 2*(self.stop_point-self.release_point) / self.exit_velocity
-        self.FINAL = np.array([self.angle[indx,indy], self.stop_point]).reshape((2, 1))
+        self.FINAL = np.array([self.angle[self.target], self.stop_point]).reshape((2, 1))
         self.final_vel = np.array([0.0, 0.0]).reshape((2, 1))
         self.final_accel = np.array([0.0, 0.0]).reshape((2, 1))
         
@@ -378,10 +374,6 @@ class Thrower:
         self.INIT_TIME = 0.0
 
 
-
-
-                            
-    
 ###############################################################################
 #
 #  Main Code

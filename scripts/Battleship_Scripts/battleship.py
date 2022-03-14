@@ -13,7 +13,7 @@ import sys
 sys.path.insert(1, '/home/me134/me134ws/src/ME134/scripts')
 import kinematics as kin
 from sensor_msgs.msg   import JointState
-
+from ME134.msg import aruco_center
 from sensor_msgs.msg import Image
 from detector_demo.msg import SingleDetection, ManyDetections
 
@@ -126,8 +126,6 @@ class Battleship:
             else:
                 # Opponent Board
                 victory, winner = self.alg.update_opponent_board(loc)
-        
-        # Check if None is returned (then hackysack throw made no difference)
         
         # Update the visualization
         robot_board, robot_ships = self.alg.get_robot_state()
