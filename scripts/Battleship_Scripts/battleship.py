@@ -120,23 +120,19 @@ class Battleship:
         # Update the human and robot boards
         for i in range(len(hackysacks_x)):
             loc = (hackysacks_x[i], hackysacks_y[i])
-            # print('X-Location:\n', loc[0])
             if loc[0] > self.board_thres:
                 # Robot Board
-                print(self.alg.update_robot_board(loc))
                 victory, winner = self.alg.update_robot_board(loc)
             else:
                 # Opponent Board
-                print(self.alg.update_opponent_board(loc))
                 victory, winner = self.alg.update_opponent_board(loc)
         
         # Update the visualization
         robot_board, robot_ships = self.alg.get_robot_state()
         human_board, human_ships = self.alg.get_opponent_state()
 
-        # self.vis.draw_board(robot_board, robot_ships, player='robot')
-        # self.vis.draw_board(human_board, human_ships, player='human')
-        print(robot_board)
+        self.vis.draw_board(robot_board, robot_ships, player='robot')
+        self.vis.draw_board(human_board, human_ships, player='human')
 
         # Check if there is a victory, then showcase it
         if victory:

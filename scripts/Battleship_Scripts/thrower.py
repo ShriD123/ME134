@@ -290,7 +290,6 @@ class Thrower:
             for ind,locx in enumerate(sack_holder_array.datax):
                 locy = sack_holder_array.datay[ind]
                 if (locx < 0.61 and locx > 0.54 and locy > -0.19 and locy < -0.13):
-                    print('Got in HERE!!')
                     if current_effort[1] > 2.15:
                         rospy.logerr('Hackysack in Thrower')
                         self.is_waiting = False
@@ -325,8 +324,6 @@ class Thrower:
         # HOLD
         self.HOLD_TIME = 0.1
 
-        print('Target Decided Upon:\n', self.target)
-
         # MOVE TO START POSITION (PRIOR TO LAUNCH)
         self.START = np.array([self.angle[self.target], 0.0]).reshape((2, 1))
         
@@ -353,8 +350,7 @@ class Thrower:
         self.FINAL = np.array([self.angle[self.target], self.stop_point]).reshape((2, 1))
         self.final_vel = np.array([0.0, 0.0]).reshape((2, 1))
         self.final_accel = np.array([0.0, 0.0]).reshape((2, 1))
-        print('start angle:\n', self.START)
-        print('exit velocity\n', self.exit_velocity)
+
         # STACK IMPLEMENTATION
         self.trajectory = Trajectory([
             # Go back to loading position
@@ -375,9 +371,6 @@ class Thrower:
             # Move from initial position to loading position. (Initial may be the same as loading position)
             Goto5(self.curr_t,
                 self.LOAD, self.LOAD, self.INIT_TIME)])
-        print('YOU REACHED HERE!')
-        print('Thrower Trajectory:\n', self.trajectory)
-        print('Thrower Trajectory Length:\n', len(self.trajectory))
         self.INIT_TIME = 0.1
 
 

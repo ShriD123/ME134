@@ -104,7 +104,7 @@ class Board:
         board_pos, result = self.check_opponent_result(pos)
 
         if board_pos == self.OUTOFBOUNDS or result == self.OUTOFBOUNDS:
-            return (False, 'NONE')
+            return False, 'NONE'
 
         self.opponent[board_pos] = result
 
@@ -147,15 +147,10 @@ class Board:
         # Iterate through the board and check the status
         for m in range(self.M):
             for n in range(self.N):
-                if self.robot[m,n] == self.HIT or self.robot[m,n] == self.SHIP:
-                    return False
-                elif self.opponent[m,n] == self.HIT or self.opponent[m,n] == self.SHIP:
-                    return False
-                elif self.robot[m,n] == self.SUNK:
+                if self.robot[m,n] == self.SUNK:
                     robot_sunk_counter += 1
                 elif self.opponent[m,n] == self.SUNK:
                     opponent_sunk_counter += 1
-        
         if robot_sunk_counter == sum(self.ship_sizes):
             print('ROBOT WON!')
             #playsound('Robot Win.mp3')
@@ -216,7 +211,7 @@ class Board:
         elif rel_pos[1] > bounds[4] and rel_pos[1] <= bounds[5]:
             y_idx = 4
 
-        return (x_idx, y_idx)
+        return x_idx, y_idx
 
     #    
     # Determine the next target based off the current board space.
