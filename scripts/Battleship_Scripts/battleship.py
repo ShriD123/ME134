@@ -109,7 +109,6 @@ class Battleship:
         self.curr_t = cmdmsg.header.stamp
 
 
-
     #
     # Callback Function for when hackysacks are detected
     #
@@ -174,13 +173,3 @@ if __name__ == "__main__":
         # Wait for the next turn.  The timing is determined by the
         # above definition of servo.
         servo.sleep()
-
-
-
-    ''' For testing the random generation of the ships. '''
-    # board = np.zeros(5,5)
-    # ship_locations = find_ships(5, [4, 3, 2])
-    # for i in range(len(ship_locations)):
-    #     board[ship_locations[i]] = 1
-
-

@@ -24,8 +24,12 @@ class Board:
         self.N = 5
         self.ship_sizes = [4, 3, 2]
 
-        self.board_origin = aruco_position      # FIGURE OUT LATER HOW EXACTLY TO INPUT THIS... important for board to xyz and xyz to board fns
-        self.is_cheat = False                   # Make a publisher and subscriber to update this on the fly
+        self.board_origin = aruco_position
+        self.is_cheat = False                   
+
+        # Make a publisher and subscriber to update the cheating function
+        self.pub_cheat = rospy.Publisher('/difficulty', String, queue_size=10)
+        self.sub_cheat = rospy.Subscriber('/difficulty', String, self.callback_alg)
 
         # Constants to discern between different states
         self.WATER = 0
@@ -166,9 +170,9 @@ class Board:
     # Determine the next target based off the current board space.
     #
     def next_target(self, is_cheat):
-        # TODO: Input the list of indices in terms of probability order later.
-        prob_map = []
-        target_pos = 0          # Return this as an index for now... see what the thrower compute spline does
+        prob_map = [(3,3), (2,3), (3,2), (2,2), (4,3), (3,4), (4,2), (2,4), (3,1),
+                    (1,3), (2,1), (1,2), (4,4), (1,1), (4,1), (1,4), (0,3), (3,0),
+                    (2,0), (0,2), (4,0), (0,4), (0,1), (1,0), (0,0)]
 
         # Use to determine if should use opponent's board or not
         if self.is_cheat:
@@ -269,6 +273,17 @@ class Board:
     # 
     def get_opponent_state(self):
         return self.opponent, self.opponent_ships
+
+    #
+    # Callback function to change if cheating is occurring or not
+    #
+    def callback_alg(self, msg):
+        if self.is_cheat:
+            self.is_cheat = False
+        else:
+            self.is_cheat = True
+
+
 ############################################################################################
 #
 #   HELPER FUNCTIONS
