@@ -146,6 +146,15 @@ class Battleship:
         # Update the visualization
         robot_board, robot_ships = self.alg.get_robot_state()
         human_board, human_ships = self.alg.get_opponent_state()
+        
+        # Check if there is a victory, then showcase it
+        if victory:
+            # Passes in either 'ROBOT' or 'WINNER'
+            self.vis.declare_winner(winner)
+        
+        # Compute next target
+        self.next_target = self.alg.next_target()
+
         # If the board has not changed from the last, don't update the visualizer
         if np.allclose(robot_board, self.plot_robotboard) and (np.allclose(human_board, self.plot_humanboard)):
             pass
@@ -158,14 +167,8 @@ class Battleship:
             # Update visualizer
             self.vis.draw_board(self.plot_robotboard, self.plot_robotships, player='robot')
             self.vis.draw_board(self.plot_humanboard, self.plot_humanships, player='human')
-
-        # Check if there is a victory, then showcase it
-        if victory:
-            # Passes in either 'ROBOT' or 'WINNER'
-            self.vis.declare_winner(winner)
-        
-        # Compute next target
-        self.next_target = self.alg.next_target()
+            # Display robot target
+            self.vis.draw_nextmove(self.next_target, player='human')
 
 ###############################################################################
 #

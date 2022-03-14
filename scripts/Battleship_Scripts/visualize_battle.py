@@ -215,7 +215,7 @@ class Visualizer:
     
     def draw_nextmove(self, loc, player='robot'):
         """ Draws X at position specified
-        loc = np.array([[X location, Y location]])
+        loc = (X location, Y location)
         """
         # Which player do we want to draw the board for
         if player == 'robot':
@@ -223,7 +223,7 @@ class Visualizer:
         else:
             ax = self.human_ax
             
-        ax.scatter(loc.flatten()[0] + 0.5, loc.flatten()[1] + 0.5, s=300, c='r', marker='o')
+        ax.scatter(loc[0] + 0.5, loc[1] + 0.5, s=300, c='r', marker='o')
         self.draw_grid()
         
         
