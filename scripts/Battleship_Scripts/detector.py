@@ -80,6 +80,7 @@ class Detector:
 
         self.servo = rospy.Rate(100)
         
+        self.p0 = (-0.035, 0.1325)            # For the algorithm to know what the aruco marker #0 position is
 
         self.blob_sub = rospy.Subscriber('/usb_cam/image_raw', Image,self.find_xyz)
         self.last_blob = np.array([0.0, 0.0])
@@ -151,7 +152,11 @@ class Detector:
             i = i + 2
             j = j + 1
 
-
+    # 
+    # Return the origin aruco marker position
+    #
+    def get_aruco_origin(self):
+        return self.p0
     
 
     #
@@ -163,24 +168,23 @@ class Detector:
 
         # Close to thrower, far from receiver
         coord = np.array([[0,1],[2,3],[4,5],[6,7]])
-        p0 = (-0.035, 0.1325)
         for i in [0, 1, 2, 3]:
             if self.marker_id[i] == 0:
-                p0 = p0
+                self.p0 = self.p0
                 a0 = (self.center_values[coord[i,0]], self.center_values[coord[i,1]])
             elif self.marker_id[i] == 10:
-                p1 = (p0[0], p0[1] + 0.555)
+                p1 = (self.p0[0], self.p0[1] + 0.555)
                 a1 = (self.center_values[coord[i,0]], self.center_values[coord[i,1]])
             elif self.marker_id[i] == 2:
-                p2 = (p0[0] - 0.555, p0[1])
+                p2 = (self.p0[0] - 0.555, self.p0[1])
                 a2 = (self.center_values[coord[i,0]], self.center_values[coord[i,1]])
             elif self.marker_id[i] == 3:
-                p3 = (p0[0] - 0.555, p0[1] + 0.555)
+                p3 = (self.p0[0] - 0.555, self.p0[1] + 0.555)
                 a3 = (self.center_values[coord[i,0]], self.center_values[coord[i,1]])
         
         pixels = np.float32([[a0],[a1],[a2],[a3]])
         coords = cv2.undistortPoints(pixels, self.camK, self.camD)
-        points = np.float32([p0, p1, p2, p3])
+        points = np.float32([self.p0, p1, p2, p3])
         self.M = cv2.getPerspectiveTransform(coords, points)
 
         sack_locs = self.sack_detector(data)

@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
+from pyexpat.model import XML_CTYPE_MIXED
 import rospy
 import math
 import time 
 import numpy as np
+from std_msgs.msg import String
 #from playsound import playsound
 
 '''This code encapsulates the board checks and calculations, as well as determining
@@ -18,14 +20,15 @@ class Board:
     #
     # Initialize.
     #
-    def __init__(self, opponent_ships, aruco_position=None, robot_board=None, opponent_board=None):
+    def __init__(self, opponent_ships, aruco_position, board_thres, robot_board=None, opponent_board=None):
         # Initialize any important variables
         self.M = 5
         self.N = 5
         self.ship_sizes = [4, 3, 2]
 
         self.board_origin = aruco_position
-        self.is_cheat = False                   
+        self.is_cheat = False              
+        self.thres = board_thres     
 
         # Make a publisher and subscriber to update the cheating function
         self.pub_cheat = rospy.Publisher('/difficulty', String, queue_size=10)
@@ -59,6 +62,9 @@ class Board:
     #
     def update_robot_board(self, pos):
         board_pos, result = self.check_robot_result(pos)
+
+        if board_pos is None or result is None:
+            return False, None
 
         self.robot[board_pos] = result
 
@@ -96,6 +102,10 @@ class Board:
     def update_opponent_board(self, pos):
         board_pos, result = self.check_opponent_result(pos)
 
+        if board_pos is None or result is None:
+            return False, None
+
+
         self.opponent[board_pos] = result
 
         # Check if the whole ship is sunk if it is hit
@@ -125,7 +135,6 @@ class Board:
 
         # Check victory condition
         return self.check_victory()
-
 
     #    
     # Check if either side has won, and indicate accordingly.
@@ -161,10 +170,49 @@ class Board:
     #    
     # Determine what a xyz space corresponds to board position
     #
-    def xyz_to_board(self, board):
-        #TODO: Implement later
-        # Make the function with respect to the aruco market position closest to receiver.
-        pass
+    def xyz_to_board(self, sack_pos):
+        # Return None if it is not in any of the boards (UPDATE OTHER FUNCTIONS FOR THIS)
+        x_idx = None
+        y_idx = None
+
+        bounds = [0.0, 0.085, 0.175, 0.265, 0.355, 0.440]
+
+        p0 = (0.56, 0.5)        # Vector to (0,0) for robot board
+        p1 = (-0.05, 0.5)       # Vector to (0,0) for opponent board
+
+        # Determine which side of the board the sack is on and its relative position
+        if sack_pos[0] > self.thres:
+            # Robot Board
+            rel_pos = sack_pos - (p0 + self.board_origin)
+        else:
+            # Opponent Board
+            rel_pos = sack_pos - (p1 + self.board_origin)
+        
+        # Determine the x index using the bounds (which are symmetric)
+        if rel_pos[0] > bounds[0] and rel_pos[0] <= bounds[1]:
+            x_idx = 0
+        elif rel_pos[0] > bounds[1] and rel_pos[0] <= bounds[2]:
+            x_idx = 1
+        elif rel_pos[0] > bounds[2] and rel_pos[0] <= bounds[3]:
+            x_idx = 2
+        elif rel_pos[0] > bounds[3] and rel_pos[0] <= bounds[4]:
+            x_idx = 3
+        elif rel_pos[0] > bounds[4] and rel_pos[0] <= bounds[5]:
+            x_idx = 4
+        
+        # Determine the y index using the bounds (which are symmetric)
+        if rel_pos[1] > bounds[0] and rel_pos[1] <= bounds[1]:
+            y_idx = 0
+        elif rel_pos[1] > bounds[1] and rel_pos[1] <= bounds[2]:
+            y_idx = 1
+        elif rel_pos[1] > bounds[2] and rel_pos[1] <= bounds[3]:
+            y_idx = 2
+        elif rel_pos[1] > bounds[3] and rel_pos[1] <= bounds[4]:
+            y_idx = 3
+        elif rel_pos[1] > bounds[4] and rel_pos[1] <= bounds[5]:
+            y_idx = 4
+
+        return (x_idx, y_idx)
 
     #    
     # Determine the next target based off the current board space.
@@ -237,7 +285,11 @@ class Board:
     #
     def check_robot_result(self, hackysack_pos):
         # Find the board position pertaining to the hackysack
-        board_pos = xyz_to_board(hackysack_pos)         # Should return a tuple of indices on the board
+        board_pos = self.xyz_to_board(hackysack_pos)         # Should return a tuple of indices on the board
+
+        # If the hackysack has not hit any spot on the board, return None
+        if board_pos[0] is None or board_pos[1] is None:
+            return None, None
 
         if self.robot[board_pos] == self.WATER:
             return board_pos, self.MISS
@@ -252,7 +304,11 @@ class Board:
     #
     def check_opponent_result(self, hackysack_pos):
         # Find the board position pertaining to the hackysack
-        board_pos = xyz_to_board(hackysack_pos)         # Should return a tuple of indices on the board
+        board_pos = self.xyz_to_board(hackysack_pos)         # Should return a tuple of indices on the board
+
+                # If the hackysack has not hit any spot on the board, return None
+        if board_pos[0] is None or board_pos[1] is None:
+            return None, None
 
         if self.opponent[board_pos] == self.WATER:
             return board_pos, self.MISS

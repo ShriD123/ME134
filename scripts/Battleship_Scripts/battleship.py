@@ -38,15 +38,17 @@ class Battleship:
     def __init__(self):
         # Initialize the major constituents
         self.detector = Detector(h_lims=(100, 200), s_lims=(100, 230), v_lims=(100, 250))
-        board_origin = self.detector(soemthing soemtrhing)
+        board_origin = self.detector.get_aruco_origin()
         init_state = rospy.wait_for_message('/hebi/joint_states', JointState)
 
+        # Robot board, closer to thrower --> X Values Should be greater than thres
+        self.board_thres = 0.0 
 
         # Initialize the visualization and board states
         # self.alg = Board()
         self.vis = Visualizer()
         opponent_ships = self.vis.choose_ship_position_rand()
-        self.alg = Board()
+        self.alg = Board(opponent_ships, board_origin, self.board_thres)
 
         # Move the arms to the initial position given their current positions.
         thrower_init_pos = init_state.position[0:2]
@@ -65,8 +67,6 @@ class Battleship:
         self.board_size = 5
         self.ship_sizes = [4, 3, 2]
         self.next_target = (0, 0)
-        # Robot board, closer to thrower --> X Values Should be greater than thres
-        self.board_thres = 0.0 
 
 
         # Create publishers and subscribers for the Detector. 
@@ -126,6 +126,8 @@ class Battleship:
             else:
                 # Opponent Board
                 victory, winner = self.alg.update_opponent_board(loc)
+        
+        # Check if None is returned (then hackysack throw made no difference)
         
         # Update the visualization
         robot_board, robot_ships = self.alg.get_robot_state()
