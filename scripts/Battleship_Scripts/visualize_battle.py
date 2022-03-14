@@ -47,39 +47,39 @@ class Scoreboard(tk.Tk):
         self.humanhits = ttk.Label(self, text='0 Hits', font=self.textfont)
         self.humanmiss = ttk.Label(self, text='0 Miss', font=self.textfont)
         
+        # Dividing Line
+        self.divider =ttk.Separator(self, orient='vertical').grid(column=1, row=0, rowspan=3, sticky='ns')
+        
         self.update_GUI()
         
     def update_score(self, hits, miss, player='robot'):
         """ Updates score based on board """
         # Tupdate the scoreboard based on readings
-        if player == 'robot':
-            self.robothits = ttk.Label(self, text='{} Hits'.format(hits), font=self.textfont)
-            self.robotmiss = ttk.Label(self, text='{} Miss'.format(miss), font=self.textfont)
-        elif player == 'human':
-            self.humanhits = ttk.Label(self, text='{} Hits'.format(hits), font=self.textfont)
-            self.humanmiss = ttk.Label(self, text='{} Miss'.format(miss), font=self.textfont)
+        # NOTE: Robot hits/miss shows hits on human board; thus why these are swapped
+        if player == 'human':
+            self.robothits.config(text='{} Hits'.format(hits))
+            self.robotmiss.config(text='{} Miss'.format(miss))
+        elif player == 'robot':
+            self.humanhits.config(text='{} Hits'.format(hits))
+            self.humanmiss.config(text='{} Miss'.format(miss))
         self.update_GUI()
     
     def declare_winner(self, winner):
         if winner == 'ROBOT':
-            self.robotlabel.config(text='ROBOT')
-            self.humanlabel.config(text='WINS')
-            #self.robotlabel = ttk.Label(self, text='ROBOT', font=self.headerfont)
-            #self.humanlabel = ttk.Label(self, text='WINS', font=self.headerfont)
+            self.robotlabel.config(text='ROBOT', font=('Arial', 75), foreground='#ff1944')
+            self.humanlabel.config(text='WINS!!!', font=('Arial', 75), foreground='#ff1944')
         elif winner == 'OPPONENT':
-            self.robotlabel.config(text='HUMAN')
-            self.humanlabel.config(text='WINS')
-            #self.robotlabel = ttk.Label(self, text='HUMAN', font=self.headerfont)
-            #self.humanlabel = ttk.Label(self, text='WINS', font=self.headerfont)
+            self.robotlabel.config(text='HUMAN', font=('Arial', 75), foreground='#ff1944')
+            self.humanlabel.config(text='WINS!!!', font=('Arial', 75), foreground='#ff1944')
         self.update_GUI()
             
     def update_GUI(self):
         self.robotlabel.grid(row=0, column=0, padx=10, pady=10)
-        self.humanlabel.grid(row=0, column=1, padx=10, pady=10)
+        self.humanlabel.grid(row=0, column=2, padx=10, pady=10)
         self.robothits.grid(row=1, column=0)
         self.robotmiss.grid(row=2, column=0)
-        self.humanhits.grid(row=1, column=1)
-        self.humanmiss.grid(row=2, column=1)
+        self.humanhits.grid(row=1, column=2)
+        self.humanmiss.grid(row=2, column=2)
 
         
 
@@ -256,7 +256,7 @@ class Visualizer:
                 shipcolor = 'k'
                 
             # Outline of ship rectangle
-            rect = patches.Rectangle((minx, miny), xlength, ylength, linewidth=5, edgecolor=shipcolor, facecolor='none')
+            rect = patches.Rectangle((minx, miny), xlength, ylength, linewidth=15, edgecolor=shipcolor, facecolor='none')
             ax.add_patch(rect)
             rect.set_clip_path(rect)
             # Fill for ship rectangle
@@ -354,7 +354,7 @@ class Visualizer:
             Displays the ship configuration given, and a prompt asking if user is ok with this configuration
             Returns True if user clicks Yes, otherwise returns False
         """
-        ships_sizes = [4, 3, 2]
+        ship_sizes = [4, 3, 2]
         ships = find_ships(self.M, ship_sizes)
 
         self.draw_board(np.zeros((5, 5)), ships, player='human')
