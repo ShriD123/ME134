@@ -48,6 +48,7 @@ class Battleship:
 
         # Initialize the visualization and board states
         # self.alg = Board()
+        # Initialize visualizer to allow player to choose positions
         self.vis = Visualizer()
         self.plotcounter = False
         self.plot_robotboard = np.zeros((5, 5))
@@ -55,6 +56,8 @@ class Battleship:
         self.plot_humanboard = np.zeros((5, 5))
         self.plot_humanships = None
         opponent_ships = self.vis.choose_ship_position_rand()
+        # Close the visualizer after human chooses
+        self.vis.close()
         self.alg = Board(opponent_ships, board_origin, self.board_thres)
 
         # Move the arms to the initial position given their current positions.
@@ -115,22 +118,17 @@ class Battleship:
         # Save current timestamp 
         self.curr_t = cmdmsg.header.stamp
 
-        # If the plot needs to be updated, update
-        # TEMPORARY FIX: only update when receiver is waiting to prevent time it takes to update plot from interfering
-        # Ideally run in different thread so it doesn't interfere with main thread
-        # UNCOMMENT THIS TO ENABLE VISUALIZATION
-        # if self.plotcounter and self.receiver.is_waiting:
-        #     print('drawing plot')
-        #     self.vis.draw_board(self.plot_robotboard, self.plot_robotships, player='robot')
-        #     self.vis.draw_board(self.plot_humanboard, self.plot_humanships, player='human')
-        #     self.plotcounter = False
-
 
 
     #
     # Callback Function for when hackysacks are detected
     #
     def callback_blob(self, msg):
+        # Re-initialize the visualizer inside this thread so that it runs separate from main loop
+        if not self.plotcounter:
+            self.vis = Visualizer()
+            self.plotcounter = True
+            # After initializing it, set counter to True so that we don't re-initialize it again
         # Collect the hackysack positions
         hackysacks_x = msg.datax
         hackysacks_y = msg.datay
@@ -148,27 +146,23 @@ class Battleship:
         # Update the visualization
         robot_board, robot_ships = self.alg.get_robot_state()
         human_board, human_ships = self.alg.get_opponent_state()
-        print('Human board')
-        print(human_board)
-        print('Stored Value')
-        print(self.plot_humanboard)
-        print('bool')
-        print((np.allclose(human_board, self.plot_humanboard)))
         # If the board has not changed from the last, don't update the visualizer
         if np.allclose(robot_board, self.plot_robotboard) and (np.allclose(human_board, self.plot_humanboard)):
-            self.plotcounter = False
+            pass
         else:
-            self.plotcounter = True
-        self.plot_robotboard = np.copy(robot_board)
-        self.plot_robotships = robot_ships
-        self.plot_humanboard = np.copy(human_board)
-        self.plot_humanships = human_ships
+            # Update board positions
+            self.plot_robotboard = np.copy(robot_board)
+            self.plot_robotships = robot_ships
+            self.plot_humanboard = np.copy(human_board)
+            self.plot_humanships = human_ships
+            # Update visualizer
+            self.vis.draw_board(self.plot_robotboard, self.plot_robotships, player='robot')
+            self.vis.draw_board(self.plot_humanboard, self.plot_humanships, player='human')
 
         # Check if there is a victory, then showcase it
         if victory:
             # Passes in either 'ROBOT' or 'WINNER'
             self.vis.declare_winner(winner)
-            # pass
         
         # Compute next target
         self.next_target = self.alg.next_target()

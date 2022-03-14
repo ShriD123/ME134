@@ -66,21 +66,28 @@ class Scoreboard(tk.Tk):
         self.update_GUI()
     
     def declare_winner(self, winner):
-        if winner == 'ROBOT':
+        """ Update the headings to show who won """
+        # Note: the winners are switched because if the opponent's board is all sunk, the robot has won and vice versa
+        if winner == 'OPPONENT':
             self.robotlabel.config(text='ROBOT', font=('Arial', 75), foreground='#ff1944')
             self.humanlabel.config(text='WINS!!!', font=('Arial', 75), foreground='#ff1944')
-        elif winner == 'OPPONENT':
+        elif winner == 'ROBOT':
             self.robotlabel.config(text='HUMAN', font=('Arial', 75), foreground='#ff1944')
             self.humanlabel.config(text='WINS!!!', font=('Arial', 75), foreground='#ff1944')
         self.update_GUI()
             
     def update_GUI(self):
+        # Update all the labels in the scoreboard
         self.robotlabel.grid(row=0, column=0, padx=10, pady=10)
         self.humanlabel.grid(row=0, column=2, padx=10, pady=10)
         self.robothits.grid(row=1, column=0)
         self.robotmiss.grid(row=2, column=0)
         self.humanhits.grid(row=1, column=2)
         self.humanmiss.grid(row=2, column=2)
+    
+    # Destroy the scoreboard
+    def close(self):
+        self.destroy()
 
         
 
@@ -141,7 +148,7 @@ class Visualizer:
                 self.cell_lookup[rowcol] = (i, j)
         
         # Initialize the scoreboard
-        #self.score = Scoreboard()
+        self.score = Scoreboard()
 
 
     ########################################################################    
@@ -479,23 +486,27 @@ class Visualizer:
     # Declare Winner
     def declare_winner(self, winner):
         """ Winner either ROBOT or OPPONENT """
-        #self.score.declare_winner(winner)
+        self.score.declare_winner(winner)
         
-        #self.refresh_display()
+        self.refresh_display()
     
+    # Update the scoreboard by computing score from board
     def update_scores(self, board, player='robot'):
         hit_value = np.ones((5, 5)) * self.HIT
         miss_value = np.ones((5, 5)) * self.MISS
         hits = np.count_nonzero(np.isclose(board, hit_value))
         miss = np.count_nonzero(np.isclose(board, miss_value))
-        #self.score.update_score(hits, miss, player=player)
+        self.score.update_score(hits, miss, player=player)
 
-
+    # Function to refresh the plot display
     def refresh_display(self):
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
-        #plt.show(block=True)
-        
+    
+    # Function to close all windows
+    def close(self):
+        plt.close()
+        self.score.close()
 
     
 
