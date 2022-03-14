@@ -41,13 +41,18 @@ class Battleship:
         board_origin = self.detector(soemthing soemtrhing)
         init_state = rospy.wait_for_message('/hebi/joint_states', JointState)
 
+
+        # Initialize the visualization and board states
+        # self.alg = Board()
+        self.vis = Visualizer()
+        opponent_ships = self.vis.choose_ship_position_rand()
+        self.alg = Board()
+
         # Move the arms to the initial position given their current positions.
         thrower_init_pos = init_state.position[0:2]
         receiver_init_pos = init_state.position[2:7]
         self.receiver = Receiver(receiver_init_pos)
         self.thrower = Thrower(thrower_init_pos)
-        self.vis = Visualizer()
-        self.algorithm = Board()
 
         # Connect the algorithm and the visualizer 
         # Collect the motor names, which defines the dofs (useful to know)
@@ -59,22 +64,16 @@ class Battleship:
         self.curr_t = 0.0
         self.board_size = 5
         self.ship_sizes = [4, 3, 2]
-        '''
-        # Initialize the board, saved as a 5x5 numpy array
-        # 1 means a ship is at that location, while 0 means it is empty.
-        self.board = np.zeros(self.board_size, self.board_size)
-        ship_locations = self.find_ships(self.board_size, self.ship_sizes)
-        for i in range(len(ship_locations)):
-            self.board[ship_locations[i]] = 1
+        self.next_target = (0, 0)
+        # Robot board, closer to thrower --> X Values Should be greater than thres
+        self.board_thres = 0.0 
 
-        # Visualize the board. 
-        #TODO: Figure out how to differentiate between player and robot and different ships
-        self.vis.draw_board(self.board)
-        '''
+
         # Create publishers and subscribers for the Detector. 
-        # Might not need these 2 publishers
-        self.pub_image = rospy.Publisher('detection_images_thresh', Image, queue_size=10)
-        self.pub_detect = rospy.Publisher('detections', ManyDetections, queue_size=10)
+        self.sack_detect = rospy.Subscriber('/blob_loc', aruco_center, self.callback_blob)
+
+        # self.pub_image = rospy.Publisher('detection_images_thresh', Image, queue_size=10)
+        # self.pub_detect = rospy.Publisher('detections', ManyDetections, queue_size=10)
 
         self.sub_image = rospy.Subscriber('/usb_cam/image_raw', Image, self.detector.aruco_detect)
 
@@ -110,6 +109,38 @@ class Battleship:
         self.curr_t = cmdmsg.header.stamp
 
 
+    #
+    # Callback Function for when hackysacks are detected
+    #
+    def callback_blob(self, msg):
+        # Collect the hackysack positions
+        hackysacks_x = msg.datax
+        hackysacks_y = msg.datay
+
+        # Update the human and robot boards
+        for i in range(len(hackysacks_x)):
+            loc = (hackysacks_x[i], hackysacks_y[i])
+            if loc[0] > self.board_thres:
+                # Robot Board
+                victory, winner = self.alg.update_robot_board(loc)
+            else:
+                # Opponent Board
+                victory, winner = self.alg.update_opponent_board(loc)
+        
+        # Update the visualization
+        robot_board, robot_ships = self.alg.get_robot_state()
+        human_board, human_ships = self.alg.get_opponent_state()
+
+        self.vis.draw_board(robot_board, robot_ships, player='robot')
+        self.vis.draw_board(human_board, human_ships, player='human')
+
+        # Check if there is a victory, then showcase it
+        if victory:
+            # Passes in either 'ROBOT' or 'WINNER'
+            self.vis.declare_winner(winner)
+        
+        # Compute next target
+        self.next_target =self.alg.next_target()
 
 ###############################################################################
 #
@@ -142,13 +173,3 @@ if __name__ == "__main__":
         # Wait for the next turn.  The timing is determined by the
         # above definition of servo.
         servo.sleep()
-
-
-
-    ''' For testing the random generation of the ships. '''
-    # board = np.zeros(5,5)
-    # ship_locations = find_ships(5, [4, 3, 2])
-    # for i in range(len(ship_locations)):
-    #     board[ship_locations[i]] = 1
-
-

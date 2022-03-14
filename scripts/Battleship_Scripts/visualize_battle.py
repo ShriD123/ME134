@@ -14,6 +14,7 @@ import PySimpleGUI as sg
 import copy
 import tkinter as tk
 import tkinter.ttk as ttk
+from algorithm import find_ships
 
 '''This code encapsulates the functionality for the visualization aspects that show
 the current board and guesses on the monitor and plays sounds for hits or misses.'''
@@ -32,31 +33,54 @@ class Scoreboard(tk.Tk):
         # configure the root window
         self.title('BATTLESHIP SCOREBOARD')
         
-        headerfont = ('Arial', 35)
-        textfont = ('Arial', 25)
+        self.headerfont = ('Arial', 35)
+        self.textfont = ('Arial', 25)
 
         # label
-        self.robotlabel = ttk.Label(self, text='ROBOT', font=headerfont)
-        self.humanlabel = ttk.Label(self, text='HUMAN', font=headerfont)
+        self.robotlabel = ttk.Label(self, text='ROBOT', font=self.headerfont)
+        self.humanlabel = ttk.Label(self, text='HUMAN', font=self.headerfont)
         
         # Scores
-        self.robothits = ttk.Label(self, text='0 Hits', font=textfont)
-        self.robotmiss = ttk.Label(self, text='0 Miss', font=textfont)
+        self.robothits = ttk.Label(self, text='0 Hits', font=self.textfont)
+        self.robotmiss = ttk.Label(self, text='0 Miss', font=self.textfont)
         
-        self.humanhits = ttk.Label(self, text='0 Hits', font=textfont)
-        self.humanmiss = ttk.Label(self, text='0 Miss', font=textfont)
+        self.humanhits = ttk.Label(self, text='0 Hits', font=self.textfont)
+        self.humanmiss = ttk.Label(self, text='0 Miss', font=self.textfont)
         
+        # Dividing Line
+        self.divider =ttk.Separator(self, orient='vertical').grid(column=1, row=0, rowspan=3, sticky='ns')
+        
+        self.update_GUI()
+        
+    def update_score(self, hits, miss, player='robot'):
+        """ Updates score based on board """
+        # Tupdate the scoreboard based on readings
+        # NOTE: Robot hits/miss shows hits on human board; thus why these are swapped
+        if player == 'human':
+            self.robothits.config(text='{} Hits'.format(hits))
+            self.robotmiss.config(text='{} Miss'.format(miss))
+        elif player == 'robot':
+            self.humanhits.config(text='{} Hits'.format(hits))
+            self.humanmiss.config(text='{} Miss'.format(miss))
+        self.update_GUI()
+    
+    def declare_winner(self, winner):
+        if winner == 'ROBOT':
+            self.robotlabel.config(text='ROBOT', font=('Arial', 75), foreground='#ff1944')
+            self.humanlabel.config(text='WINS!!!', font=('Arial', 75), foreground='#ff1944')
+        elif winner == 'OPPONENT':
+            self.robotlabel.config(text='HUMAN', font=('Arial', 75), foreground='#ff1944')
+            self.humanlabel.config(text='WINS!!!', font=('Arial', 75), foreground='#ff1944')
+        self.update_GUI()
+            
+    def update_GUI(self):
         self.robotlabel.grid(row=0, column=0, padx=10, pady=10)
-        self.humanlabel.grid(row=0, column=1, padx=10, pady=10)
+        self.humanlabel.grid(row=0, column=2, padx=10, pady=10)
         self.robothits.grid(row=1, column=0)
         self.robotmiss.grid(row=2, column=0)
-        self.humanhits.grid(row=1, column=1)
-        self.humanmiss.grid(row=2, column=1)
-        
-    def update_score(self, board, player='robot'):
-        """ Updates score based on board """
-        # TODO pass the state of the board and update the scoreboard based on readings
-        pass
+        self.humanhits.grid(row=1, column=2)
+        self.humanmiss.grid(row=2, column=2)
+
         
 
 ###############################################################################
@@ -168,11 +192,14 @@ class Visualizer:
         self.draw_ships(ships, ax)
         
         # Draw the boxes
+        # TRANSPOSE IF X AND Y AXES ARE FLIPPED
         ax.imshow(color, aspect='equal', interpolation='none',
                 extent=[0, self.N, 0, self.M], zorder=0)
 
         self.draw_grid()
         
+        # Update the player's score on the scoreboard
+        self.update_scores(board, player=player)
         # Force the figure to pop up.
         self.fig.canvas.draw_idle()
         self.fig.canvas.flush_events()
@@ -192,6 +219,7 @@ class Visualizer:
         ax.scatter(loc.flatten()[0] + 0.5, loc.flatten()[1] + 0.5, s=300, c='r', marker='o')
         self.draw_grid()
         
+        
         # Force the figure to pop up
         self.fig.canvas.draw_idle()
         self.fig.canvas.flush_events()
@@ -207,7 +235,7 @@ class Visualizer:
             # Cast into numpy array of form np.array([[1, 2], [1, 3]])
             ship_array = np.array(ship)
             # Find corners of ship
-            
+            # SWITCH THESE IF X AND Y AXES ARE FLIPPED
             (minx, miny) = (np.amin(ship_array[:, 0]), np.amin(ship_array[:, 1]))
             (maxx, maxy) = (np.amax(ship_array[:, 0]), np.amax(ship_array[:, 1]))
             
@@ -228,7 +256,7 @@ class Visualizer:
                 shipcolor = 'k'
                 
             # Outline of ship rectangle
-            rect = patches.Rectangle((minx, miny), xlength, ylength, linewidth=5, edgecolor=shipcolor, facecolor='none')
+            rect = patches.Rectangle((minx, miny), xlength, ylength, linewidth=15, edgecolor=shipcolor, facecolor='none')
             ax.add_patch(rect)
             rect.set_clip_path(rect)
             # Fill for ship rectangle
@@ -262,7 +290,7 @@ class Visualizer:
     ######################################################################## 
     def choose_ship_position(self):
         """ This function enables the user to choose where to place ships
-        NOTE: THIS IS A BLOCKING FUNCTION THAT BLOCKS UNTIL USER IS DONE PICKING SHIPS
+        NOTE: THIS IS A BLOCKING FUNCTION THAT BLOCKS UNTIL USER IS DONE PICKING SHIPS, NOW DEPRECATED
         This creates a GUI that allows the user to position their ships
         Returns user chosen positions after user clicks 'done'
         in list of tuple form [[(x11, y11), (x12, y12), (x13, y13)], [(x21, y21), (x22, y22)], and so on]
@@ -321,11 +349,14 @@ class Visualizer:
         window.close()
         return ships
     
-    def choose_ship_position_rand(self, ships):
+    def choose_ship_position_rand(self):
         """NOTE: THIS IS A BLOCKING FUNCTION
             Displays the ship configuration given, and a prompt asking if user is ok with this configuration
             Returns True if user clicks Yes, otherwise returns False
         """
+        ship_sizes = [4, 3, 2]
+        ships = find_ships(self.M, ship_sizes)
+
         self.draw_board(np.zeros((5, 5)), ships, player='human')
         
         sg.theme('Default1')
@@ -336,9 +367,9 @@ class Visualizer:
 
         window = sg.Window('CONFIGURE YOUR SHIPS', layout)      
         
-        userok = True
+        userok = False
 
-        while True:                             
+        while not userok:                             
             event, values = window.read() 
             print(event, values)       
             if event == sg.WIN_CLOSED:
@@ -347,11 +378,11 @@ class Visualizer:
                 userok = True
                 break
             if event == 'no':
-                userok = False
-                break      
+                ships = find_ships(self.M, ship_sizes)
+                self.draw_board(np.zeros((5, 5)), ships, player='human')
         window.close()
         
-        return userok
+        return ships
         
     #-----------------------------------------------------------------------    
     # HELPER FUNCTIONS FOR choose_ship_position
@@ -441,6 +472,23 @@ class Visualizer:
             playsound('hit.mp3', False)
         else:
             playsound('miss.wav', False)
+            
+     
+    # Declare Winner
+    def declare_winner(self, winner):
+        """ Winner either ROBOT or OPPONENT """
+        self.score.declare_winner(winner)
+        self.fig.canvas.draw_idle()
+        self.fig.canvas.flush_events()
+    
+    def update_scores(self, board, player='robot'):
+        hit_value = np.ones((5, 5)) * self.HIT
+        miss_value = np.ones((5, 5)) * self.MISS
+        hits = np.count_nonzero(np.isclose(board, hit_value))
+        miss = np.count_nonzero(np.isclose(board, miss_value))
+        self.score.update_score(hits, miss, player=player)
+        
+
     
 
 
@@ -462,10 +510,10 @@ if __name__ == "__main__":
     ship_sizes = [4, 3, 2]
     ships = [[(0, 3), (1, 3), (2, 3), (3, 3)], [(0, 2), (1, 2), (2, 2)], [(4, 0), (4, 1)]]
     
-    human_ships = vis.choose_ship_position()
+
+
+    human_ships = vis.choose_ship_position_rand()
     print(human_ships)
-    userok = vis.choose_ship_position_rand(human_ships)
-    print(userok)
     vis.draw_board(board, ships, player='robot')
     print('drawing board')
     
@@ -480,9 +528,11 @@ if __name__ == "__main__":
     
     vis.draw_board(board, human_ships, player='human')
     print('drawing human')
+    vis.declare_winner('ROBOT')
     time.sleep(2)
     
-    
+    vis.declare_winner('OPPONENT')
+    time.sleep(2)
     #while True:
     #    vis.draw_board(np.random.randint(5, size=(5, 5)), ships, ship_sizes, player = 'robot')
         

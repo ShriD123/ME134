@@ -18,14 +18,18 @@ class Board:
     #
     # Initialize.
     #
-    def __init__(self, ship_sizes, board_size, aruco_position=None, robot_board=None, opponent_board=None):
+    def __init__(self, opponent_ships, aruco_position=None, robot_board=None, opponent_board=None):
         # Initialize any important variables
-        self.M = board_size
-        self.N = board_size
-        self.ship_sizes = ship_sizes
+        self.M = 5
+        self.N = 5
+        self.ship_sizes = [4, 3, 2]
 
-        self.board_origin = aruco_position      # FIGURE OUT LATER HOW EXACTLY TO INPUT THIS... important for board to xyz and xyz to board fns
-        self.is_cheat = False                   # Make a publisher and subscriber to update this on the fly
+        self.board_origin = aruco_position
+        self.is_cheat = False                   
+
+        # Make a publisher and subscriber to update the cheating function
+        self.pub_cheat = rospy.Publisher('/difficulty', String, queue_size=10)
+        self.sub_cheat = rospy.Subscriber('/difficulty', String, self.callback_alg)
 
         # Constants to discern between different states
         self.WATER = 0
@@ -36,8 +40,7 @@ class Board:
 
         # Initialize the 5X5 boards and ship list for the robot and the opponent
         self.robot_ships = find_ships(board_size, self.ship_sizes)
-        # self.opponent_ships = input_opponent_ships()                              # TODO: Implement a good way to input the opponent's ship
-        self.opponent_ships = find_ships(board_size, self.ship_sizes)
+        self.opponent_ships = opponent_ships
 
         self.robot = np.zeros((self.M, self.N))
         self.input_robot(self.robot_ships)
@@ -55,9 +58,9 @@ class Board:
     # Update the robot's board with the corresponding hackysack position
     #
     def update_robot_board(self, pos):
-        result = self.check_robot_result(pos)
+        board_pos, result = self.check_robot_result(pos)
 
-        self.robot[pos] = result
+        self.robot[board_pos] = result
 
         # Check if the whole ship is sunk if it is hit
         if result == self.HIT:
@@ -67,7 +70,7 @@ class Board:
             for i in self.ship_sizes:
                 this_ship = self.robot_ships[i]
                 for j in range(i):
-                    if pos == this_ship[j]:
+                    if board_pos == this_ship[j]:
                         ship_loc = i
 
             # Check if all parts of the ship are hit
@@ -85,15 +88,15 @@ class Board:
                     self.robot[hit_ship[i]] = self.SUNK
 
         # Check victory condition
-        self.check_victory()
+        return self.check_victory()
 
     #
     # Update the opponent's board with the corresponding hackysack position
     #
     def update_opponent_board(self, pos):
-        result = self.check_opponent_result(pos)
+        board_pos, result = self.check_opponent_result(pos)
 
-        self.opponent[pos] = result
+        self.opponent[board_pos] = result
 
         # Check if the whole ship is sunk if it is hit
         if result == self.HIT:
@@ -103,7 +106,7 @@ class Board:
             for i in self.ship_sizes:
                 this_ship = self.opponent_ships[i]
                 for j in range(i):
-                    if pos == this_ship[j]:
+                    if board_pos == this_ship[j]:
                         ship_loc = i
 
             # Check if all parts of the ship are hit
@@ -121,7 +124,8 @@ class Board:
                     self.opponent[hit_ship[i]] = self.SUNK
 
         # Check victory condition
-        self.check_victory()
+        return self.check_victory()
+
 
     #    
     # Check if either side has won, and indicate accordingly.
@@ -146,13 +150,13 @@ class Board:
         if robot_sunk_counter == sum(self.ship_sizes):
             print('ROBOT WON!')
             #playsound('Robot Win.mp3')
-            return True
+            return True, 'ROBOT'
         elif opponent_sunk_counter == sum(self.ship_sizes):
             print('OPPONENT WON!')
             #playsound('Opponent Win.mp3')
-            return True
+            return True, 'OPPONENT'
         else:
-            return False
+            return False, None
 
     #    
     # Determine what a xyz space corresponds to board position
@@ -166,15 +170,15 @@ class Board:
     # Determine the next target based off the current board space.
     #
     def next_target(self, is_cheat):
-        # TODO: Input the list of indices in terms of probability order later.
-        prob_map = []
-        target_pos = 0          # Return this as an index for now... see what the thrower compute spline does
+        prob_map = [(3,3), (2,3), (3,2), (2,2), (4,3), (3,4), (4,2), (2,4), (3,1),
+                    (1,3), (2,1), (1,2), (4,4), (1,1), (4,1), (1,4), (0,3), (3,0),
+                    (2,0), (0,2), (4,0), (0,4), (0,1), (1,0), (0,0)]
 
         # Use to determine if should use opponent's board or not
         if self.is_cheat:
-            data_threshold = 0.75
+            data_threshold = 0.80
         else:
-            data_threshold = 0.25
+            data_threshold = 0.20
 
         rand_val = np.random.uniform()
 
@@ -185,16 +189,16 @@ class Board:
                     if self.opponent[i,j] == self.SHIP:
                         return (i,j)
         else:
-            # Use the next value in the probability map, if not already hit
+            # Use the next value in the probability map, if there is a ship and not hit
             for k in enumerate(prob_map):
                 if self.opponent[k] == self.SHIP:
                     return k
 
-        # If no ships remaining, we should be victorious
-        self.check_victory()
-
+        # If no ships remaining, we should be victorious, so value error
+        print(self.robot)
         print(self.opponent)
-        raise ValueError('No Ships Remaining and No Victory?')
+        raise ValueError('No Ships Remaining, Should be Victorious')
+
 
     #    
     # Input the robot ship locations during initialization and make the board
@@ -236,12 +240,12 @@ class Board:
         board_pos = xyz_to_board(hackysack_pos)         # Should return a tuple of indices on the board
 
         if self.robot[board_pos] == self.WATER:
-            return self.MISS
+            return board_pos, self.MISS
         elif self.robot[board_pos] == self.SHIP:
-            return self.HIT
+            return board_pos, self.HIT
         else:
             # Position already been hit, so just return that again
-            return self.robot[board_pos]
+            return board_pos, self.robot[board_pos]
         
     # 
     # Check the hackysack position on opponent board and see what result in the game that gives you
@@ -251,12 +255,12 @@ class Board:
         board_pos = xyz_to_board(hackysack_pos)         # Should return a tuple of indices on the board
 
         if self.opponent[board_pos] == self.WATER:
-            return self.MISS
+            return board_pos, self.MISS
         elif self.opponent[board_pos] == self.SHIP:
-            return self.HIT
+            return board_pos, self.HIT
         else:
             # Position already been hit, so just return that again
-            return self.opponent[board_pos]
+            return board_pos, self.opponent[board_pos]
 
     # 
     # Get the robot board and ships (for visualization purposes)
@@ -269,6 +273,17 @@ class Board:
     # 
     def get_opponent_state(self):
         return self.opponent, self.opponent_ships
+
+    #
+    # Callback function to change if cheating is occurring or not
+    #
+    def callback_alg(self, msg):
+        if self.is_cheat:
+            self.is_cheat = False
+        else:
+            self.is_cheat = True
+
+
 ############################################################################################
 #
 #   HELPER FUNCTIONS
