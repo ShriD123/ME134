@@ -82,6 +82,13 @@ class Trajectory:
         (pos, vel) = self.curr_spline.evaluate(t)
         return (pos, vel)
 
+    # 
+    # Show current spline
+    #
+    def print_current_spline(self):
+        print(self.curr_spline)
+        print(self.curr_spline.t0)
+
 
 ###############################################################################
 #
@@ -94,21 +101,18 @@ class Receiver:
     def __init__(self, init_pos):
 
         # Collect the motor names, which defines the dofs (useful to know)
-        self.motors = ['Red/7', 'Red/6', 'Red/4', 'Red/2', 'Red/3']
+        # self.motors = ['Red/7', 'Red/6', 'Red/4', 'Red/2', 'Red/3']
+        self.motors = ['Pan', 'Tilt', 'Elbow', 'Wrist']
         self.dofs = len(self.motors)
-        
-        # Create a publisher to send a message to the thrower
-        self.rtpub = rospy.Publisher("/rt",String, queue_size=5)
-        rospy.sleep(0.25)
-        
-        # Create a subscriber to receive messages from the thrower
-        self.sub_exitwait = rospy.Subscriber('/tr', String, self.callback_exitwait)
         
         # Grab the robot's URDF from the parameter server.
         robot = Robot.from_parameter_server()
 
         # Instantiate the Kinematics
         self.kin = kin.Kinematics(robot, 'world', 'tip')
+
+        self.pub = rospy.Publisher("/joint_states", JointState, queue_size=5)
+
 
         self.pos_init = np.array(init_pos).reshape((self.dofs, 1))
         [T, J] = self.kin.fkin(self.pos_init[0:3])
@@ -130,7 +134,7 @@ class Receiver:
         #self.DROPOFF = np.array([0.50, -0.08, 0.40]).reshape((3, 1))
         self.DROPOFF_ABOVE_joint = np.array(self.kin.ikin(self.DROPOFF_ABOVE, np.array([-1.56, 1.20, -1.22]).reshape((3,1)))).reshape((3, 1))
         self.gripper_theta = 0.0
-        self.INIT_TIME = 2.0
+        self.INIT_TIME = 3.0
 
         # Initialize the gravity parameters
         self.grav_A = 0.20
@@ -147,7 +151,42 @@ class Receiver:
         self.GRASP_TIME = 0.5
 
         # Populate the trajectory
-        self.compute_spline()
+        # self.compute_spline()
+
+        self.hackysack_pos = np.array([0.25, 0.25, 0.0]).reshape((3,1))
+        z_offset = np.array([0.0, 0.0, 0.0 + 0.12]).reshape((3,1))
+        hackysack_above = self.hackysack_pos + z_offset
+
+        if self.INIT_TIME > 0.0:
+            self.trajectory = Trajectory([Goto5(self.curr_t, self.pos_init_task[0:3], self.START, self.INIT_TIME,'GripOff'),
+                            # Start Pos to Above Hackysack              
+                Goto5(self.curr_t+self.INIT_TIME, self.START, hackysack_above, self.TRAVEL_TIME,'Task'),         
+                            # Above Hackysack to Hackysack
+                Goto5(self.curr_t+self.INIT_TIME+self.TRAVEL_TIME, hackysack_above, self.hackysack_pos, self.OFFSET_TIME,'Task'),        
+                            # Grasp the hackysack
+                Goto5(self.curr_t+self.INIT_TIME+self.TRAVEL_TIME+self.OFFSET_TIME, self.hackysack_pos, self.hackysack_pos, self.GRASP_TIME,'GripOn'),    
+                            # Hackysack to Above Hackysack
+                Goto5(self.curr_t+self.INIT_TIME+self.TRAVEL_TIME+self.OFFSET_TIME+self.GRASP_TIME, self.hackysack_pos, hackysack_above, self.OFFSET_TIME,'Task'),  
+                            # Above Hackysack to Thrower Pos
+                Goto5(self.curr_t+self.INIT_TIME+self.TRAVEL_TIME+2*self.OFFSET_TIME+self.GRASP_TIME, hackysack_above, self.DROPOFF_ABOVE, self.TRAVEL_TIME,'Task'),   
+                            #  
+                Goto5(self.curr_t+self.INIT_TIME+2*self.TRAVEL_TIME+2*self.OFFSET_TIME+self.GRASP_TIME, self.DROPOFF_ABOVE, self.DROPOFF_ABOVE, self.GRASP_TIME,'GripOff'),
+                Goto5(self.curr_t+self.INIT_TIME+2*self.TRAVEL_TIME+2*self.OFFSET_TIME+2*self.GRASP_TIME, self.DROPOFF_ABOVE, self.WAIT, self.OFFSET_TIME,'Task')])                               # Return to start
+        else:
+            self.trajectory = Trajectory([Goto5(self.curr_t, self.WAIT, hackysack_above, self.TRAVEL_TIME,'Task'),         
+                            # Above Hackysack to Hackysack
+                Goto5(self.curr_t+self.TRAVEL_TIME, hackysack_above, self.hackysack_pos, self.OFFSET_TIME,'Task'),        
+                            # Grasp the hackysack
+                Goto5(self.curr_t+self.TRAVEL_TIME+self.OFFSET_TIME, self.hackysack_pos, self.hackysack_pos, self.GRASP_TIME,'GripOn'),    
+                            # Hackysack to Above Hackysack
+                Goto5(self.curr_t+self.TRAVEL_TIME+self.OFFSET_TIME+self.GRASP_TIME, self.hackysack_pos, hackysack_above, self.OFFSET_TIME,'Task'),  
+                            # Above Hackysack to Thrower Pos
+                Goto5(self.curr_t+self.TRAVEL_TIME+2*self.OFFSET_TIME+self.GRASP_TIME, hackysack_above, self.DROPOFF_ABOVE, self.TRAVEL_TIME,'Task'),   
+                            #  
+                Goto5(self.curr_t+2*self.TRAVEL_TIME+2*self.OFFSET_TIME+self.GRASP_TIME, self.DROPOFF_ABOVE, self.DROPOFF_ABOVE, self.GRASP_TIME,'GripOff'),
+                Goto5(self.curr_t+2*self.TRAVEL_TIME+2*self.OFFSET_TIME+2*self.GRASP_TIME, self.DROPOFF_ABOVE, self.WAIT, self.TRAVEL_TIME,'Task')])                               # Return to start
+      
+        self.INIT_TIME = 0.0   
 
 
         # Initialize any helpful global variables
@@ -169,7 +208,7 @@ class Receiver:
             nan = float('nan')
             cmdmsg.position = np.array([nan, nan, nan, -np.pi/2 - self.curr_pos[1] - self.curr_pos[2]]).reshape((4,1))
             cmdmsg.velocity = np.array([nan, nan, nan, nan]).reshape((4,1))
-            cmdmsg.effort = self.gravity(self.curr_pos)
+            # cmdmsg.effort = self.gravity(self.curr_pos)
             (T,J) = self.kin.fkin(self.curr_pos)
             p = T[0:3,3:4]
         
@@ -180,7 +219,7 @@ class Receiver:
                     self.is_waiting = True
                     if not self.msg_sent:
                         message = "Throw"
-                        self.rtpub.publish(message)
+                        # self.rtpub.publish(message)
                         self.msg_sent = True
                 else:
                     self.trajectory.pop_spline()
@@ -188,11 +227,11 @@ class Receiver:
 
 
             if self.is_waiting:
-                start_tuple = self.kin.ikin(self.START, np.array(self.curr_pos).reshape((3,1)))
+                start_tuple = self.kin.ikin(self.WAIT, np.array(self.curr_pos).reshape((3,1)))
                 start_array = np.array(start_tuple).reshape((3,1))
-                cmdmsg.position = np.array([start_array[0,0], start_array[1,0], start_array[2,0], -np.pi/2 - start_array[1,0] - start_array[2,0], self.gripper_theta]).reshape((5,1))
-                cmdmsg.velocity = np.array([0.0, 0.0, 0.0, 0.0, 0.0]).reshape((5, 1))
-                cmdmsg.effort = self.gravity(self.curr_pos)
+                cmdmsg.position = np.array([start_array[0,0], start_array[1,0], start_array[2,0], -np.pi/2 - start_array[1,0] - start_array[2,0]]).reshape((4,1))
+                cmdmsg.velocity = np.array([0.0, 0.0, 0.0, 0.0]).reshape((4, 1))
+                # cmdmsg.effort = self.gravity(self.curr_pos)
 
                 self.pos_init_task = self.START
 
@@ -202,12 +241,10 @@ class Receiver:
                     (this_pos, this_vel) = self.trajectory.update(t)
                     
                 elif (self.trajectory.traj_space() == 'Task' or self.trajectory.traj_space() == 'GripOn' or self.trajectory.traj_space() == 'GripOff'):
-                    # TODO: Need to update to account for 4DOF
                     (x, xdot) = self.trajectory.update(t)
                     cart_pos = np.array(x).reshape((3,1))
                     cart_vel = np.array(xdot).reshape((3,1))
                     this_pos_tuple = self.kin.ikin(cart_pos, np.array(self.curr_pos).reshape((3,1)))
-                    print(this_pos_tuple)
 
                     this_pos = np.array(this_pos_tuple).reshape((3,1))
                     (T, J) = self.kin.fkin(this_pos)
@@ -223,22 +260,25 @@ class Receiver:
                     raise ValueError('Unknown Spline Type')
 
 
-                cmdmsg.position = np.array([this_pos[0,0], this_pos[1,0], this_pos[2,0], -np.pi/2 - this_pos[1,0] - this_pos[2,0], self.gripper_theta]).reshape((5,1))
-                cmdmsg.velocity = np.array([this_vel[0,0], this_vel[1,0], this_vel[2,0], 0.0 - this_vel[1,0] - this_vel[2,0], 0.0]).reshape((5,1))
-                cmdmsg.effort = self.gravity(self.curr_pos)
+                cmdmsg.position = np.array([this_pos[0,0], this_pos[1,0], this_pos[2,0], -np.pi/2 - this_pos[1,0] - this_pos[2,0]]).reshape((4,1))
+                cmdmsg.velocity = np.array([this_vel[0,0], this_vel[1,0], this_vel[2,0], 0.0 - this_vel[1,0] - this_vel[2,0]]).reshape((4,1))
+                # cmdmsg.effort = self.gravity(self.curr_pos)
 
         if (cmdmsg.position[0] - self.curr_pos[0] > 0.2 or cmdmsg.position[1] - self.curr_pos[1] > 0.2 or cmdmsg.position[2] - self.curr_pos[2] > 0.2):
             rospy.logerr("Bad theta input")
+            print(cmdmsg.position)
+            self.trajectory.print_current_spline()
             rospy.signal_shutdown()
 
         # Store the command message
         self.curr_pos = cmdmsg.position[0:3]
         self.curr_vel = cmdmsg.velocity[0:3]
-        self.curr_accel = cmdmsg.effort[0:3]
+        # self.curr_accel = cmdmsg.effort[0:3]
         self.curr_t = t
 
-        # Return the command message to be sent to battleship
-        return cmdmsg.position, cmdmsg.velocity, cmdmsg.effort
+        # Publish the command message
+        cmdmsg.header.stamp = rospy.Time.now()
+        self.pub.publish(cmdmsg)
         
     #
     # Gravity Compensation Function
@@ -247,7 +287,7 @@ class Receiver:
         theta_1 = pos[1]; theta_2 = pos[2]
         tau2 = self.grav_A * math.sin(theta_1 + theta_2) + self.grav_B * math.cos(theta_1 + theta_2)
         tau1 = self.grav_C * math.sin(theta_1) + self.grav_D * math.cos(theta_1) + tau2
-        return np.array([0.0, tau1, tau2, 0.0, 0.0]).reshape((self.dofs,1)) 
+        return np.array([0.0, tau1, tau2, 0.0]).reshape((self.dofs,1)) 
 
     #
     # Callback Function for the Error Sensing
@@ -274,7 +314,7 @@ class Receiver:
         # Initialize the trajectories that we want for the loop
         xy_sackpos = rospy.wait_for_message('/blob_loc', aruco_center)
         sack_found = False
-        print(xy_sackpos.blob)
+        #print(xy_sackpos)
         while xy_sackpos.blob == "No Blob":
             xy_sackpos = rospy.wait_for_message('/blob_loc', aruco_center)
             print("no blob on detector range")
@@ -295,39 +335,34 @@ class Receiver:
         hackysack_above = self.hackysack_pos + z_offset
         # hackysack_above_joint = np.array(self.kin.ikin(hackysack_above, np.array([0.9, 1.2, -1.8]).reshape((3,1)))).reshape((3, 1))
                         # Actual Pos to Start Pos
-        #if self.INIT_TIME > 0.0:
-        hello_joint = np.array([1.73, 0.81, -1.63]).reshape((3,1))
-        (T,J) = self.kin.fkin(hello_joint)
-        hello = T[0:3,3:4]
-        print(self.pos_init_task[0:3])
-        self.trajectory = Trajectory([Goto5(self.curr_t, self.pos_init_task[0:3], self.pos_init_task[0:3], self.INIT_TIME,'Task'),
-            Goto5(self.curr_t + self.INIT_TIME, self.pos_init_task[0:3], self.START, self.INIT_TIME,'GripOff'),
-                        # Start Pos to Above Hackysack              
-            Goto5(self.curr_t+2*self.INIT_TIME, self.START, hackysack_above, self.TRAVEL_TIME,'Task'),         
-                        # Above Hackysack to Hackysack
-            Goto5(self.curr_t+2*self.INIT_TIME+self.TRAVEL_TIME, hackysack_above, self.hackysack_pos, self.OFFSET_TIME,'Task'),        
-                        # Grasp the hackysack
-            Goto5(self.curr_t+2*self.INIT_TIME+self.TRAVEL_TIME+self.OFFSET_TIME, self.hackysack_pos, self.hackysack_pos, self.GRASP_TIME,'GripOn'),    
-                        # Hackysack to Above Hackysack
-            Goto5(self.curr_t+2*self.INIT_TIME+self.TRAVEL_TIME+self.OFFSET_TIME+self.GRASP_TIME, self.hackysack_pos, hackysack_above, self.OFFSET_TIME,'Task'),  
-                        # Above Hackysack to Thrower Pos
-            Goto5(self.curr_t+2*self.INIT_TIME+self.TRAVEL_TIME+2*self.OFFSET_TIME+self.GRASP_TIME, hackysack_above, self.DROPOFF_ABOVE, self.TRAVEL_TIME,'Task'),   
-                        #  
-            Goto5(self.curr_t+2*self.INIT_TIME+2*self.TRAVEL_TIME+2*self.OFFSET_TIME+self.GRASP_TIME, self.DROPOFF_ABOVE, self.DROPOFF_ABOVE, self.GRASP_TIME,'GripOff'),
-            Goto5(self.curr_t+2*self.INIT_TIME+2*self.TRAVEL_TIME+2*self.OFFSET_TIME+2*self.GRASP_TIME, self.DROPOFF_ABOVE_joint, self.START_joint, self.TRAVEL_TIME,'Joint')])                               # Return to start
-        # else:
-        #     self.trajectory = Trajectory([Goto5(self.curr_t, self.WAIT, hackysack_above, self.TRAVEL_TIME,'Task'),         
-        #                     # Above Hackysack to Hackysack
-        #         Goto5(self.curr_t+self.TRAVEL_TIME, hackysack_above, self.hackysack_pos, self.OFFSET_TIME,'Task'),        
-        #                     # Grasp the hackysack
-        #         Goto5(self.curr_t+self.TRAVEL_TIME+self.OFFSET_TIME, self.hackysack_pos, self.hackysack_pos, self.GRASP_TIME,'GripOn'),    
-        #                     # Hackysack to Above Hackysack
-        #         Goto5(self.curr_t+self.TRAVEL_TIME+self.OFFSET_TIME+self.GRASP_TIME, self.hackysack_pos, hackysack_above, self.OFFSET_TIME,'Task'),  
-        #                     # Above Hackysack to Thrower Pos
-        #         Goto5(self.curr_t+self.TRAVEL_TIME+2*self.OFFSET_TIME+self.GRASP_TIME, hackysack_above, self.DROPOFF_ABOVE, self.TRAVEL_TIME,'Task'),   
-        #                     #  
-        #         Goto5(self.curr_t+2*self.TRAVEL_TIME+2*self.OFFSET_TIME+self.GRASP_TIME, self.DROPOFF_ABOVE, self.DROPOFF_ABOVE, self.GRASP_TIME,'GripOff'),
-        #         Goto5(self.curr_t+2*self.TRAVEL_TIME+2*self.OFFSET_TIME+2*self.GRASP_TIME, self.DROPOFF_ABOVE, self.WAIT, self.TRAVEL_TIME,'Task')])                               # Return to start
+        if self.INIT_TIME > 0.0:
+            self.trajectory = Trajectory([Goto5(self.curr_t, self.pos_init_task[0:3], self.START, self.INIT_TIME,'GripOff'),
+                            # Start Pos to Above Hackysack              
+                Goto5(self.curr_t+self.INIT_TIME, self.START, hackysack_above, self.TRAVEL_TIME,'Task'),         
+                            # Above Hackysack to Hackysack
+                Goto5(self.curr_t+self.INIT_TIME+self.TRAVEL_TIME, hackysack_above, self.hackysack_pos, self.OFFSET_TIME,'Task'),        
+                            # Grasp the hackysack
+                Goto5(self.curr_t+self.INIT_TIME+self.TRAVEL_TIME+self.OFFSET_TIME, self.hackysack_pos, self.hackysack_pos, self.GRASP_TIME,'GripOn'),    
+                            # Hackysack to Above Hackysack
+                Goto5(self.curr_t+self.INIT_TIME+self.TRAVEL_TIME+self.OFFSET_TIME+self.GRASP_TIME, self.hackysack_pos, hackysack_above, self.OFFSET_TIME,'Task'),  
+                            # Above Hackysack to Thrower Pos
+                Goto5(self.curr_t+self.INIT_TIME+self.TRAVEL_TIME+2*self.OFFSET_TIME+self.GRASP_TIME, hackysack_above, self.DROPOFF_ABOVE, self.TRAVEL_TIME,'Task'),   
+                            #  
+                Goto5(self.curr_t+self.INIT_TIME+2*self.TRAVEL_TIME+2*self.OFFSET_TIME+self.GRASP_TIME, self.DROPOFF_ABOVE, self.DROPOFF_ABOVE, self.GRASP_TIME,'GripOff'),
+                Goto5(self.curr_t+self.INIT_TIME+2*self.TRAVEL_TIME+2*self.OFFSET_TIME+2*self.GRASP_TIME, self.DROPOFF_ABOVE, self.WAIT, self.OFFSET_TIME,'Task')])                               # Return to start
+        else:
+            self.trajectory = Trajectory([Goto5(self.curr_t, self.WAIT, hackysack_above, self.TRAVEL_TIME,'Task'),         
+                            # Above Hackysack to Hackysack
+                Goto5(self.curr_t+self.TRAVEL_TIME, hackysack_above, self.hackysack_pos, self.OFFSET_TIME,'Task'),        
+                            # Grasp the hackysack
+                Goto5(self.curr_t+self.TRAVEL_TIME+self.OFFSET_TIME, self.hackysack_pos, self.hackysack_pos, self.GRASP_TIME,'GripOn'),    
+                            # Hackysack to Above Hackysack
+                Goto5(self.curr_t+self.TRAVEL_TIME+self.OFFSET_TIME+self.GRASP_TIME, self.hackysack_pos, hackysack_above, self.OFFSET_TIME,'Task'),  
+                            # Above Hackysack to Thrower Pos
+                Goto5(self.curr_t+self.TRAVEL_TIME+2*self.OFFSET_TIME+self.GRASP_TIME, hackysack_above, self.DROPOFF_ABOVE, self.TRAVEL_TIME,'Task'),   
+                            #  
+                Goto5(self.curr_t+2*self.TRAVEL_TIME+2*self.OFFSET_TIME+self.GRASP_TIME, self.DROPOFF_ABOVE, self.DROPOFF_ABOVE, self.GRASP_TIME,'GripOff'),
+                Goto5(self.curr_t+2*self.TRAVEL_TIME+2*self.OFFSET_TIME+2*self.GRASP_TIME, self.DROPOFF_ABOVE, self.WAIT, self.TRAVEL_TIME,'Task')])                               # Return to start
       
         self.INIT_TIME = 0.0                 
     
@@ -338,7 +373,7 @@ class Receiver:
 if __name__ == "__main__":
     # Prepare/initialize this node.
     rospy.init_node('Receiver')
-    receiver = Receiver()
+    receiver = Receiver(np.array([-0.5, 0.0, 0.5, 0.0]).reshape((4,1)))
 
     # Prepare a servo loop at 100Hz.
     rate  = 100;

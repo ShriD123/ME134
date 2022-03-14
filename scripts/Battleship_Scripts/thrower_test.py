@@ -172,29 +172,18 @@ class Thrower:
 
         self.msg_sent = False
 
-        self.speed = np.array([2.098,2.098,2.098,2.065,2.065,2.038,2.038,2.048,2.048,2.081,2.081,\
-                            2.214, 2.214, 2.181,2.181,2.162,2.162,2.164,2.164, 2.181, 2.181,\
-                            2.313,2.313,2.297,2.297,2.279,2.279, 2.280,2.280,2.297,2.297,\
-                            2.446, 2.446, 2.412, 2.412, 2.397,2.397,2.412,2.412,2.412,2.412,\
-                            2.561, 2.561, 2.545, 2.545,2.514, 2.514, 2.528, 2.528, 2.545, 2.545])
-        self.speed_add = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.012, 0.012, 0.01, 0.01, 0.01, 0.01,\
-                            -0.02, -0.02, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,\
-                             0.01, 0.01, 0.01, 0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,\
-                             -0.01, -0.01, 0.0, 0.0, -0.01, -0.01, -0.01, -0.01, 0.01, 0.01,\
-                            0.0, 0.0, 0.0, 0.0, 0.01, 0.01, 0.0, 0.0, 0.0, 0.0])
-        self.speed += self.speed_add
-        self.angle = np.array([0.21, 0.21, 0.21,0.1, 0.1, 0.02, 0.02, -0.11, -0.11, -0.23, -0.23,\
-                            0.19, 0.19, 0.09, 0.09, 0.02, 0.02, -0.1, -0.1, -0.2, -0.2,\
-                            0.17, 0.17, 0.08, 0.08, 0.02, 0.02, -0.09, -0.09, -0.18, -0.18,\
-                            0.16, 0.16, 0.06, 0.06, 0.02, 0.02, -0.07, -0.07, -0.17, -0.17,\
-                            0.15, 0.15, 0.06, 0.06, 0.02, 0.02, -0.06, -0.06, -0.15, -0.15]) + np.ones(51)*0.02
-        self.angle_add = np.array([0.0, 0.0, 0.0,0.02, 0.02, 0.0, 0.0, 0.0, 0.0, 0.02, 0.02,\
-                            0.02, 0.02, 0.02, 0.02, 0.0, 0.0, 0.0, 0.0, 0.02, 0.02,\
-                            0.02, 0.02, 0.04, 0.04, 0.0, 0.0, 0.02, 0.02, 0.02, 0.02,\
-                            0.05, 0.05, 0.05, 0.05, 0.0, 0.0, 0.0, 0.0, 0.03, 0.03,\
-                            0.03, 0.03, 0.05, 0.05, 0.02, 0.02, 0.02, 0.02, 0.03, 0.03])
-        self.angle += self.angle_add
-        self.ind = 0
+        self.speed = np.array([[2.098, 2.065, 2.05,  2.058, 2.091],\
+                               [2.194, 2.181, 2.162, 2.164, 2.191],\
+                               [2.323, 2.307, 2.279, 2.280, 2.297],\
+                               [2.436, 2.412, 2.387, 2.402, 2.422],\
+                               [2.571, 2.545, 2.524, 2.528, 2.545]])
+
+        self.angle = np.array([[0.23, 0.14, 0.04, -0.09, -0.19],\
+                               [0.23, 0.13, 0.04, -0.08, -0.16],\
+                               [0.21, 0.14, 0.04, -0.05, -0.14],\
+                               [0.23, 0.13, 0.04, -0.05, -0.12],\
+                               [0.2,  0.13, 0.06, -0.02, -0.1]])
+        #self.ind = 0
         
         
     #
@@ -242,14 +231,15 @@ class Thrower:
 
 
         # Store the command message
-        self.curr_pos = cmdmsg.position
-        self.curr_vel = cmdmsg.velocity
-        self.curr_accel = cmdmsg.effort
+        self.curr_pos = np.array(cmdmsg.position).reshape((2, 1))
+        self.curr_vel = np.array(cmdmsg.velocity).reshape((2, 1))
+        self.curr_accel = np.array(cmdmsg.effort).reshape((2, 1))
         self.curr_t = t
 
 
         if (self.curr_pos[1] <= -0.15 or self.curr_pos[1] >= np.pi/2):
             rospy.logerr("Bad theta input")
+            rospy.logerr(self.curr_pos[1])
             rospy.signal_shutdown()
 
         # Send the command (with the current time).
@@ -263,8 +253,8 @@ class Thrower:
     
     # Callback Function to set the positions based off the actual values
     def callback_actual(self, msg):
-        self.curr_pos = msg.position
-        self.curr_vel = msg.velocity
+        self.curr_pos = np.array(msg.position).reshape((2, 1))
+        self.curr_vel = np.array(msg.velocity).reshape((2, 1))
 
     #
     # Gravity Compensation Function
@@ -310,8 +300,13 @@ class Thrower:
         # HOLD
         self.HOLD_TIME = 1.0
 
+        indx = np.random.randint(5)
+        indy = np.random.randint(5)
+        print(indx,indy)
+
+
         # MOVE TO START POSITION (PRIOR TO LAUNCH)
-        self.START = np.array([self.angle[self.ind], 0.0]).reshape((2, 1))
+        self.START = np.array([self.angle[indx,indy], 0.0]).reshape((2, 1))
         
         # LAUNCH THE PROJECTILE
         
@@ -319,13 +314,13 @@ class Thrower:
         #message = rospy.wait_for_message('/vel', Float32)#float(input('Input Exit Vel'))#1.92 # Exit velocity in Radians per second (Velocity of HEBI motor)
         #self.exit_velocity = message.data
 
-        self.exit_velocity = self.speed[self.ind]
+        self.exit_velocity = self.speed[indx,indy]
         #print(type(self.exit_velocity))
         self.release_point = np.pi/10 # Where projectile is released (Position of HEBI motor)
 
         
         # Point of release
-        self.LAUNCH = np.array([self.angle[self.ind], self.release_point]).reshape((2, 1))
+        self.LAUNCH = np.array([self.angle[indx,indy], self.release_point]).reshape((2, 1))
         
         # Launch time has to be adjusted based on exit velocity. Want the resulting spline to be monotonically increasing
         # Time must be more than Distance / Exit Velocity
@@ -339,11 +334,16 @@ class Thrower:
 
         self.stop_point = self.release_point*1.3
         self.STOP_TIME = 2*(self.stop_point-self.release_point) / self.exit_velocity
-        self.FINAL = np.array([self.angle[self.ind], self.stop_point]).reshape((2, 1))
+        self.FINAL = np.array([self.angle[indx,indy], self.stop_point]).reshape((2, 1))
         self.final_vel = np.array([0.0, 0.0]).reshape((2, 1))
         self.final_accel = np.array([0.0, 0.0]).reshape((2, 1))
-        self.ind += 1
         
+        print("self.launch_vel")
+        print(self.launch_vel)
+        print(type(self.launch_vel))
+        print("self.curr_vel")
+        print(self.curr_vel)
+        print(type(self.curr_vel))
         # STACK IMPLEMENTATION
         self.trajectory = Trajectory([
             # Go back to loading position

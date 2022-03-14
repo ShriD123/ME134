@@ -3,6 +3,8 @@
   <!-- Define general parameters.  These can be overwritten by the
        roslaunch command line. -->
   <arg name="urdf"  default="ReceiveAssem.urdf"/>
+  <!-- If RVIZ-->
+  <!-- <arg name="urdf"  default="ReceiveAssem_RVIZ.urdf"/> -->
   <arg name="model" default="$(find ME134)/urdf/$(arg urdf)"/>
   <arg name="cfg"   default="$(find ME134)/rviz/viewurdf.rviz" />
 
@@ -11,7 +13,7 @@
   <param name="robot_description" textfile="$(arg model)"/>
 
   <!-- Start the HEBI node. -->
-  <node pkg ="me134basic"
+  <!-- <node pkg ="me134basic"
 	type="hebi"
 	name="hebi"
 	output="screen"
@@ -20,37 +22,37 @@
       family: "Red"
       names: ["7", "6", "1", "2", "3"]
     </rosparam>
-  </node>
+  </node> -->
 
   <!-- Start the demo node. -->
-  <node pkg ="ME134"
-	type="receiver.py"
+  <!-- <node pkg ="ME134"
+	type="receiver_rviz.py"
 	name="demo"
 	output="screen"
-	required="true"/>
+	required="true"/> -->
 
 
   <!-- Instead of a GUI, we use program a trajectory generator. -->
-  <!-- <node pkg ="ME134"
-	type="receiver_test.py"
+  <node pkg ="ME134"
+	type="receiver_rviz.py"
 	name="gen"
   output="screen">
-  </node> -->
+  </node>
 
 
   <!-- Start the ROS kinematic chain processing. -->
-  <!-- <node pkg ="robot_state_publisher"
+  <node pkg ="robot_state_publisher"
 	type="robot_state_publisher"
 	name="rsp">
     <param name="ignore_timestamp" value="true"/>
-  </node> -->
+  </node>
 
 
   <!-- Run the rviz visualization, with viewfourR.rviz config file -->
-  <!-- <node pkg ="rviz"
+  <node pkg ="rviz"
 	type="rviz"
 	name="rviz" args="-d $(arg cfg)"
 	output="screen"
 	required="true"/>
-   -->
+  
 </launch>

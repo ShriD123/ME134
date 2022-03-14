@@ -2,6 +2,7 @@
 
 import rospy
 import math
+import time
 
 import sys
 sys.path.insert(1, '/home/me134/me134ws/src/ME134/scripts')
@@ -151,6 +152,7 @@ class Thrower:
         self.LOAD = np.array([-np.pi/2, 0.0]).reshape((2, 1))
         # TRAVEL TIME FOR TRAVERSES
         self.TRAVEL_TIME = 3.0
+        self.INIT_TIME = 1.0
         self.trajectory = Trajectory([Goto5(self.curr_t, self.pos_init, self.LOAD, self.TRAVEL_TIME)])
 
 
@@ -166,6 +168,18 @@ class Thrower:
 
         # If we want to float the arm
         self.float = False
+
+        self.speed = np.array([[2.098, 2.065, 2.05,  2.058, 2.091],\
+                        [2.194, 2.181, 2.162, 2.164, 2.191],\
+                        [2.323, 2.307, 2.279, 2.280, 2.297],\
+                        [2.436, 2.412, 2.387, 2.402, 2.422],\
+                        [2.571, 2.545, 2.524, 2.528, 2.545]])
+
+        self.angle = np.array([[0.23, 0.14, 0.04, -0.09, -0.19],\
+                               [0.23, 0.13, 0.04, -0.08, -0.16],\
+                               [0.21, 0.14, 0.04, -0.05, -0.14],\
+                               [0.23, 0.13, 0.04, -0.05, -0.12],\
+                               [0.2,  0.13, 0.06, -0.02, -0.1]])
 
         
         
@@ -219,14 +233,15 @@ class Thrower:
 
 
         # Store the command message
-        self.curr_pos = cmdmsg.position
-        self.curr_vel = cmdmsg.velocity
-        self.curr_accel = cmdmsg.effort
+        self.curr_pos = np.array(cmdmsg.position).reshape((2, 1))
+        self.curr_vel = np.array(cmdmsg.velocity).reshape((2, 1))
+        self.curr_accel = np.array(cmdmsg.effort).reshape((2, 1))
         self.curr_t = t
 
 
         if (self.curr_pos[1] <= -0.15 or self.curr_pos[1] >= np.pi/2):
             rospy.logerr("Bad theta input")
+            rospy.logerr(self.curr_pos[1])
             rospy.signal_shutdown()
 
         # Send the command (with the current time).
@@ -241,8 +256,8 @@ class Thrower:
     
     # Callback Function to set the positions based off the actual values
     def callback_actual(self, msg):
-        self.curr_pos = msg.position
-        self.curr_vel = msg.velocity
+        self.curr_pos = np.array(msg.position).reshape((2, 1))
+        self.curr_vel = np.array(msg.velocity).reshape((2, 1))
 
     #
     # Gravity Compensation Function
@@ -265,13 +280,14 @@ class Thrower:
         # Exit wait if wait is true
         if self.is_waiting:
             # Populate spline with new trajectory
+            time.sleep(1)
+            #print('Done wait')
             curr_state  = rospy.wait_for_message('/hebi/joint_states', JointState)
             current_effort = curr_state.effort
             sack_holder_array = rospy.wait_for_message('/blob_loc', aruco_center)
-
             for ind,locx in enumerate(sack_holder_array.datax):
                 locy = sack_holder_array.datay[ind]
-                if (locx < 0.67 and locx > 0.58 and locy > -0.22 and locy < -0.17):
+                if (locx < 0.61 and locx > 0.54 and locy > -0.19 and locy < -0.13):
                     if current_effort[1] > 2.15:
                         rospy.logerr('Hackysack in Thrower')
                         self.is_waiting = False
@@ -307,17 +323,22 @@ class Thrower:
         # HOLD
         self.HOLD_TIME = 0.1
 
+        indx = np.random.randint(5)
+        indy = np.random.randint(5)
+        print(indx,indy)
+
+
         # MOVE TO START POSITION (PRIOR TO LAUNCH)
-        self.START = np.array([0.0, 0.0]).reshape((2, 1))
+        self.START = np.array([self.angle[indx,indy], 0.0]).reshape((2, 1))
         
         # LAUNCH THE PROJECTILE
         
         # CHANGE THE EXIT VELOCITY HERE!
-        self.exit_velocity = 1.92 # Exit velocity in Radians per second (Velocity of HEBI motor)
-        self.release_point = np.pi/4.7 # Where projectile is released (Position of HEBI motor)
+        self.exit_velocity = self.speed[indx,indy] # Exit velocity in Radians per second (Velocity of HEBI motor)
+        self.release_point = np.pi/10 # Where projectile is released (Position of HEBI motor)
         
         # Point of release
-        self.LAUNCH = np.array([0.0, self.release_point]).reshape((2, 1))
+        self.LAUNCH = np.array([self.angle[indx,indy], self.release_point]).reshape((2, 1))
         # Launch time has to be adjusted based on exit velocity. Want the resulting spline to be monotonically increasing
         # Time must be more than Distance / Exit Velocity
         self.LAUNCH_TIME = 2.0*self.release_point / self.exit_velocity
@@ -330,30 +351,31 @@ class Thrower:
 
         self.stop_point = self.release_point*1.3
         self.STOP_TIME = 2*(self.stop_point-self.release_point) / self.exit_velocity
-        self.FINAL = np.array([0.0, self.stop_point]).reshape((2, 1))
+        self.FINAL = np.array([self.angle[indx,indy], self.stop_point]).reshape((2, 1))
         self.final_vel = np.array([0.0, 0.0]).reshape((2, 1))
         self.final_accel = np.array([0.0, 0.0]).reshape((2, 1))
         
         # STACK IMPLEMENTATION
         self.trajectory = Trajectory([
             # Go back to loading position
-            Goto5(self.curr_t+self.HOLD_TIME+self.LAUNCH_TIME+self.STOP_TIME+2*self.TRAVEL_TIME, 
+            Goto5(self.curr_t+self.HOLD_TIME+self.LAUNCH_TIME+self.STOP_TIME+self.TRAVEL_TIME+self.INIT_TIME, 
                 self.FINAL, self.LOAD, self.TRAVEL_TIME),
             # Use Quintic spline to stop arm after launch
-            QuinticSpline(self.curr_t+self.HOLD_TIME+self.LAUNCH_TIME+2*self.TRAVEL_TIME, 
+            QuinticSpline(self.curr_t+self.HOLD_TIME+self.LAUNCH_TIME+self.TRAVEL_TIME+self.INIT_TIME, 
                 self.LAUNCH, self.launch_vel, self.launch_accel, self.FINAL, self.final_vel, self.final_accel, self.STOP_TIME),
             # Use Quintic spline to move from start to release point at specified launch velocity
-            QuinticSpline(self.curr_t+self.HOLD_TIME+2*self.TRAVEL_TIME,
+            QuinticSpline(self.curr_t+self.HOLD_TIME+self.TRAVEL_TIME+self.INIT_TIME,
                 self.START, self.curr_vel, self.curr_accel, self.LAUNCH, self.launch_vel, self.launch_accel, self.LAUNCH_TIME),
             # Travel to launch start position
-            Goto5(self.curr_t+self.HOLD_TIME+self.TRAVEL_TIME, 
+            Goto5(self.curr_t+self.HOLD_TIME+self.INIT_TIME, 
                 self.LOAD, self.START, self.TRAVEL_TIME),
             # Hold at loading position 
-            Goto5(self.curr_t+self.TRAVEL_TIME,
+            Goto5(self.curr_t+self.INIT_TIME,
                 self.LOAD, self.LOAD, self.HOLD_TIME),
             # Move from initial position to loading position. (Initial may be the same as loading position)
             Goto5(self.curr_t,
-                self.LOAD, self.LOAD, self.TRAVEL_TIME)])
+                self.LOAD, self.LOAD, self.INIT_TIME)])
+        self.INIT_TIME = 0.0
 
 
 
