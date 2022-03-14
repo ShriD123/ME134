@@ -468,10 +468,13 @@ class Visualizer:
     def make_sound(self, hit=False):
     #     #TODO: Download the hit or miss audio & insert path
         # Need to set False in playsound so that it will not block
+        path = '/home/me134/me134ws/src/ME134/'
+        hitpath = path + 'sounds/hit.mp3'
+        misspath = path + 'sounds/miss.wav'
         if hit:
-            playsound('hit.mp3', False)
+            playsound(hitpath, False)
         else:
-            playsound('miss.wav', False)
+            playsound(misspath, False)
             
      
     # Declare Winner
