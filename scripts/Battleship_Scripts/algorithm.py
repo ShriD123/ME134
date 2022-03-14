@@ -173,6 +173,7 @@ class Board:
         # Return None if it is not in any of the boards (UPDATE OTHER FUNCTIONS FOR THIS)
         x_idx = None
         y_idx = None
+        rel_pos = [0, 0]
 
         bounds = [0.0, 0.085, 0.175, 0.265, 0.355, 0.440]
 
@@ -182,10 +183,12 @@ class Board:
         # Determine which side of the board the sack is on and its relative position
         if sack_pos[0] > self.thres:
             # Robot Board
-            rel_pos = sack_pos - (p0 + self.board_origin)
+            rel_pos[0] = sack_pos[0] - (p0[0] + self.board_origin[0])
+            rel_pos[1] = sack_pos[1] - (p0[1] + self.board_origin[1])
         else:
             # Opponent Board
-            rel_pos = sack_pos - (p1 + self.board_origin)
+            rel_pos[0] = sack_pos[0] - (p1[0] + self.board_origin[0])
+            rel_pos[1] = sack_pos[1] - (p1[1] + self.board_origin[1])
         
         # Determine the x index using the bounds (which are symmetric)
         if rel_pos[0] > bounds[0] and rel_pos[0] <= bounds[1]:

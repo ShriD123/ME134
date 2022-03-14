@@ -49,6 +49,8 @@ class Battleship:
         self.vis = Visualizer()
         opponent_ships = self.vis.choose_ship_position_rand()
         self.alg = Board(opponent_ships, board_origin, self.board_thres)
+        # self.vis.draw_board(robot_board, robot_ships, player='robot')
+        # self.vis.draw_board(human_board, human_ships, player='human')
 
         # Move the arms to the initial position given their current positions.
         thrower_init_pos = init_state.position[0:2]
@@ -96,7 +98,7 @@ class Battleship:
 
         # Update both receiver and thrower. All storage of info happens in those update functions.
         q_r, qdot_r, qdotdot_r = self.receiver.update(t)
-        q_t, qdot_t, qdotdot_t  = self.thrower.update(t)
+        q_t, qdot_t, qdotdot_t  = self.thrower.update(t, self.next_target)
 
         # Send the command (with the current time).
         cmdmsg.position = np.vstack([q_t.reshape((2, 1)), q_r.reshape((5, 1))])

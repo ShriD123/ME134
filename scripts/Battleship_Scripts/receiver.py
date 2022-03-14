@@ -20,7 +20,7 @@ corresponding error sensing and the necessary subscribers for itself.'''
 
 ###############################################################################
 #
-#  Trajectory Class ---> TODO: Need to edit starting trajectory for the receiver to use proper stack implementation.
+#  Trajectory Class 
 #
 class Trajectory:
     #
@@ -31,7 +31,7 @@ class Trajectory:
         if len(list_splines) == 0:
             self.curr_spline = None
         else:
-            self.curr_spline = self.splines.pop(0)
+            self.curr_spline = self.splines.pop()
 
     def traj_see_spline(self):
         return self.curr_spline
@@ -46,7 +46,7 @@ class Trajectory:
     # Returns the trajectory at the top of the stack
     #
     def pop_spline(self):
-        self.curr_spline = self.splines.pop(0)
+        self.curr_spline = self.splines.pop()
 
     #
     # Adds a trajectory to the stack (LIFO)
@@ -207,7 +207,6 @@ class Receiver:
                     cart_pos = np.array(x).reshape((3,1))
                     cart_vel = np.array(xdot).reshape((3,1))
                     this_pos_tuple = self.kin.ikin(cart_pos, np.array(self.curr_pos).reshape((3,1)))
-                    print(this_pos_tuple)
 
                     this_pos = np.array(this_pos_tuple).reshape((3,1))
                     (T, J) = self.kin.fkin(this_pos)
@@ -299,35 +298,44 @@ class Receiver:
         hello_joint = np.array([1.73, 0.81, -1.63]).reshape((3,1))
         (T,J) = self.kin.fkin(hello_joint)
         hello = T[0:3,3:4]
-        print(self.pos_init_task[0:3])
-        self.trajectory = Trajectory([Goto5(self.curr_t, self.pos_init_task[0:3], self.pos_init_task[0:3], self.INIT_TIME,'Task'),
-            Goto5(self.curr_t + self.INIT_TIME, self.pos_init_task[0:3], self.START, self.INIT_TIME,'GripOff'),
-                        # Start Pos to Above Hackysack              
-            Goto5(self.curr_t+2*self.INIT_TIME, self.START, hackysack_above, self.TRAVEL_TIME,'Task'),         
-                        # Above Hackysack to Hackysack
-            Goto5(self.curr_t+2*self.INIT_TIME+self.TRAVEL_TIME, hackysack_above, self.hackysack_pos, self.OFFSET_TIME,'Task'),        
-                        # Grasp the hackysack
-            Goto5(self.curr_t+2*self.INIT_TIME+self.TRAVEL_TIME+self.OFFSET_TIME, self.hackysack_pos, self.hackysack_pos, self.GRASP_TIME,'GripOn'),    
-                        # Hackysack to Above Hackysack
-            Goto5(self.curr_t+2*self.INIT_TIME+self.TRAVEL_TIME+self.OFFSET_TIME+self.GRASP_TIME, self.hackysack_pos, hackysack_above, self.OFFSET_TIME,'Task'),  
-                        # Above Hackysack to Thrower Pos
-            Goto5(self.curr_t+2*self.INIT_TIME+self.TRAVEL_TIME+2*self.OFFSET_TIME+self.GRASP_TIME, hackysack_above, self.DROPOFF_ABOVE, self.TRAVEL_TIME,'Task'),   
-                        #  
+        # print(self.pos_init_task[0:3])
+
+        self.trajectory = Trajectory(
+                # Returns to start from dropoff point
+            [Goto5(self.curr_t+2*self.INIT_TIME+2*self.TRAVEL_TIME+2*self.OFFSET_TIME+2*self.GRASP_TIME, self.DROPOFF_ABOVE_joint, self.START_joint, self.TRAVEL_TIME,'Joint'),
+                # Ungrasps the hackysack
             Goto5(self.curr_t+2*self.INIT_TIME+2*self.TRAVEL_TIME+2*self.OFFSET_TIME+self.GRASP_TIME, self.DROPOFF_ABOVE, self.DROPOFF_ABOVE, self.GRASP_TIME,'GripOff'),
-            Goto5(self.curr_t+2*self.INIT_TIME+2*self.TRAVEL_TIME+2*self.OFFSET_TIME+2*self.GRASP_TIME, self.DROPOFF_ABOVE_joint, self.START_joint, self.TRAVEL_TIME,'Joint')])                               # Return to start
-        # else:
-        #     self.trajectory = Trajectory([Goto5(self.curr_t, self.WAIT, hackysack_above, self.TRAVEL_TIME,'Task'),         
-        #                     # Above Hackysack to Hackysack
-        #         Goto5(self.curr_t+self.TRAVEL_TIME, hackysack_above, self.hackysack_pos, self.OFFSET_TIME,'Task'),        
-        #                     # Grasp the hackysack
-        #         Goto5(self.curr_t+self.TRAVEL_TIME+self.OFFSET_TIME, self.hackysack_pos, self.hackysack_pos, self.GRASP_TIME,'GripOn'),    
-        #                     # Hackysack to Above Hackysack
-        #         Goto5(self.curr_t+self.TRAVEL_TIME+self.OFFSET_TIME+self.GRASP_TIME, self.hackysack_pos, hackysack_above, self.OFFSET_TIME,'Task'),  
-        #                     # Above Hackysack to Thrower Pos
-        #         Goto5(self.curr_t+self.TRAVEL_TIME+2*self.OFFSET_TIME+self.GRASP_TIME, hackysack_above, self.DROPOFF_ABOVE, self.TRAVEL_TIME,'Task'),   
-        #                     #  
-        #         Goto5(self.curr_t+2*self.TRAVEL_TIME+2*self.OFFSET_TIME+self.GRASP_TIME, self.DROPOFF_ABOVE, self.DROPOFF_ABOVE, self.GRASP_TIME,'GripOff'),
-        #         Goto5(self.curr_t+2*self.TRAVEL_TIME+2*self.OFFSET_TIME+2*self.GRASP_TIME, self.DROPOFF_ABOVE, self.WAIT, self.TRAVEL_TIME,'Task')])                               # Return to start
+                # Above hackysack to dropoff point
+            Goto5(self.curr_t+2*self.INIT_TIME+self.TRAVEL_TIME+2*self.OFFSET_TIME+self.GRASP_TIME, hackysack_above, self.DROPOFF_ABOVE, self.TRAVEL_TIME,'Task'),   
+                # Hackysack to Above hackysack
+            Goto5(self.curr_t+2*self.INIT_TIME+self.TRAVEL_TIME+self.OFFSET_TIME+self.GRASP_TIME, self.hackysack_pos, hackysack_above, self.OFFSET_TIME,'Task'),
+                # Grasps the hackysack
+            Goto5(self.curr_t+2*self.INIT_TIME+self.TRAVEL_TIME+self.OFFSET_TIME, self.hackysack_pos, self.hackysack_pos, self.GRASP_TIME,'GripOn'),   
+                # Above hackysack to hackysack
+            Goto5(self.curr_t+2*self.INIT_TIME+self.TRAVEL_TIME, hackysack_above, self.hackysack_pos, self.OFFSET_TIME,'Task'), 
+                # Start Position to Above hackysack
+            Goto5(self.curr_t+2*self.INIT_TIME, self.START, hackysack_above, self.TRAVEL_TIME,'Task'),
+                # Move from actual position to start position
+            Goto5(self.curr_t + self.INIT_TIME, self.pos_init_task[0:3], self.START, self.INIT_TIME,'GripOff'),
+                # Move from actual position to start position
+            Goto5(self.curr_t, self.pos_init_task[0:3], self.pos_init_task[0:3], self.INIT_TIME,'Task')])
+
+
+        # self.trajectory = Trajectory([Goto5(self.curr_t, self.pos_init_task[0:3], self.pos_init_task[0:3], self.INIT_TIME,'Task'),
+        #     Goto5(self.curr_t + self.INIT_TIME, self.pos_init_task[0:3], self.START, self.INIT_TIME,'GripOff'),
+        #                 # Start Pos to Above Hackysack              
+        #     Goto5(self.curr_t+2*self.INIT_TIME, self.START, hackysack_above, self.TRAVEL_TIME,'Task'),         
+        #                 # Above Hackysack to Hackysack
+        #     Goto5(self.curr_t+2*self.INIT_TIME+self.TRAVEL_TIME, hackysack_above, self.hackysack_pos, self.OFFSET_TIME,'Task'),        
+        #                 # Grasp the hackysack
+        #     Goto5(self.curr_t+2*self.INIT_TIME+self.TRAVEL_TIME+self.OFFSET_TIME, self.hackysack_pos, self.hackysack_pos, self.GRASP_TIME,'GripOn'),    
+        #                 # Hackysack to Above Hackysack
+        #     Goto5(self.curr_t+2*self.INIT_TIME+self.TRAVEL_TIME+self.OFFSET_TIME+self.GRASP_TIME, self.hackysack_pos, hackysack_above, self.OFFSET_TIME,'Task'),  
+        #                 # Above Hackysack to Thrower Pos
+        #     Goto5(self.curr_t+2*self.INIT_TIME+self.TRAVEL_TIME+2*self.OFFSET_TIME+self.GRASP_TIME, hackysack_above, self.DROPOFF_ABOVE, self.TRAVEL_TIME,'Task'),   
+        #                 #  
+        #     Goto5(self.curr_t+2*self.INIT_TIME+2*self.TRAVEL_TIME+2*self.OFFSET_TIME+self.GRASP_TIME, self.DROPOFF_ABOVE, self.DROPOFF_ABOVE, self.GRASP_TIME,'GripOff'),
+        #     Goto5(self.curr_t+2*self.INIT_TIME+2*self.TRAVEL_TIME+2*self.OFFSET_TIME+2*self.GRASP_TIME, self.DROPOFF_ABOVE_joint, self.START_joint, self.TRAVEL_TIME,'Joint')])
       
         self.INIT_TIME = 0.0                 
     
