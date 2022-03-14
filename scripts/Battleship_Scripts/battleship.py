@@ -49,8 +49,6 @@ class Battleship:
         self.vis = Visualizer()
         opponent_ships = self.vis.choose_ship_position_rand()
         self.alg = Board(opponent_ships, board_origin, self.board_thres)
-        # self.vis.draw_board(robot_board, robot_ships, player='robot')
-        # self.vis.draw_board(human_board, human_ships, player='human')
 
         # Move the arms to the initial position given their current positions.
         thrower_init_pos = init_state.position[0:2]
@@ -122,27 +120,32 @@ class Battleship:
         # Update the human and robot boards
         for i in range(len(hackysacks_x)):
             loc = (hackysacks_x[i], hackysacks_y[i])
+            # print('X-Location:\n', loc[0])
             if loc[0] > self.board_thres:
                 # Robot Board
+                print(self.alg.update_robot_board(loc))
                 victory, winner = self.alg.update_robot_board(loc)
             else:
                 # Opponent Board
+                print(self.alg.update_opponent_board(loc))
                 victory, winner = self.alg.update_opponent_board(loc)
         
         # Update the visualization
         robot_board, robot_ships = self.alg.get_robot_state()
         human_board, human_ships = self.alg.get_opponent_state()
 
-        self.vis.draw_board(robot_board, robot_ships, player='robot')
-        self.vis.draw_board(human_board, human_ships, player='human')
+        # self.vis.draw_board(robot_board, robot_ships, player='robot')
+        # self.vis.draw_board(human_board, human_ships, player='human')
+        print(robot_board)
 
         # Check if there is a victory, then showcase it
         if victory:
             # Passes in either 'ROBOT' or 'WINNER'
             self.vis.declare_winner(winner)
+            # pass
         
         # Compute next target
-        self.next_target =self.alg.next_target()
+        self.next_target = self.alg.next_target()
 
 ###############################################################################
 #

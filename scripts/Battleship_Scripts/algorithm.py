@@ -40,6 +40,7 @@ class Board:
         self.HIT = 2
         self.MISS = 3
         self.SUNK = 4
+        self.OUTOFBOUNDS = -1
 
         # Initialize the 5X5 boards and ship list for the robot and the opponent
         self.robot_ships = find_ships(self.M, self.ship_sizes)
@@ -63,8 +64,8 @@ class Board:
     def update_robot_board(self, pos):
         board_pos, result = self.check_robot_result(pos)
 
-        if board_pos is None or result is None:
-            return False, None
+        if board_pos == self.OUTOFBOUNDS or result == self.OUTOFBOUNDS:
+            return (False, 'NONE')
 
         self.robot[board_pos] = result
 
@@ -73,9 +74,9 @@ class Board:
 
             # Determine which ship that position is in
             ship_loc = None
-            for i in self.ship_sizes:
+            for i in range(len(self.ship_sizes)):
                 this_ship = self.robot_ships[i]
-                for j in range(i):
+                for j in range(self.ship_sizes[i]):
                     if board_pos == this_ship[j]:
                         ship_loc = i
 
@@ -102,8 +103,8 @@ class Board:
     def update_opponent_board(self, pos):
         board_pos, result = self.check_opponent_result(pos)
 
-        if board_pos is None or result is None:
-            return False, None
+        if board_pos == self.OUTOFBOUNDS or result == self.OUTOFBOUNDS:
+            return (False, 'NONE')
 
         self.opponent[board_pos] = result
 
@@ -112,9 +113,9 @@ class Board:
 
             # Determine which ship that position is in
             ship_loc = None
-            for i in self.ship_sizes:
+            for i in range(len(self.ship_sizes)):
                 this_ship = self.opponent_ships[i]
-                for j in range(i):
+                for j in range(self.ship_sizes[i]):
                     if board_pos == this_ship[j]:
                         ship_loc = i
 
@@ -164,15 +165,15 @@ class Board:
             #playsound('Opponent Win.mp3')
             return True, 'OPPONENT'
         else:
-            return False, None
+            return False, 'NONE'
 
     #    
     # Determine what a xyz space corresponds to board position
     #
     def xyz_to_board(self, sack_pos):
-        # Return None if it is not in any of the boards (UPDATE OTHER FUNCTIONS FOR THIS)
-        x_idx = None
-        y_idx = None
+        # Return None if it is not in any of the boards
+        x_idx = self.OUTOFBOUNDS
+        y_idx = self.OUTOFBOUNDS
         rel_pos = [0, 0]
 
         bounds = [0.0, 0.085, 0.175, 0.265, 0.355, 0.440]
@@ -183,12 +184,13 @@ class Board:
         # Determine which side of the board the sack is on and its relative position
         if sack_pos[0] > self.thres:
             # Robot Board
-            rel_pos[0] = sack_pos[0] - (p0[0] + self.board_origin[0])
-            rel_pos[1] = sack_pos[1] - (p0[1] + self.board_origin[1])
+            rel_pos[0] = (p0[0] + self.board_origin[0]) - sack_pos[0]
+            rel_pos[1] = (p0[1] + self.board_origin[1]) - sack_pos[1]
         else:
             # Opponent Board
-            rel_pos[0] = sack_pos[0] - (p1[0] + self.board_origin[0])
-            rel_pos[1] = sack_pos[1] - (p1[1] + self.board_origin[1])
+            rel_pos[0] = (p1[0] + self.board_origin[0]) - sack_pos[0]
+            rel_pos[1] = (p1[1] + self.board_origin[1]) - sack_pos[1]
+
         
         # Determine the x index using the bounds (which are symmetric)
         if rel_pos[0] > bounds[0] and rel_pos[0] <= bounds[1]:
@@ -240,15 +242,14 @@ class Board:
                         return (i,j)
         else:
             # Use the next value in the probability map, if there is a ship and not hit
-            for k in enumerate(prob_map):
+            for _, k in enumerate(prob_map):
                 if self.opponent[k] == self.SHIP:
                     return k
 
         # If no ships remaining, we should be victorious, so value error
-        print(self.robot)
-        print(self.opponent)
+        print('Robot Grid:', self.robot)
+        print('Opponent Grid:', self.opponent)
         raise ValueError('No Ships Remaining, Should be Victorious')
-
 
     #    
     # Input the robot ship locations during initialization and make the board
@@ -290,8 +291,8 @@ class Board:
         board_pos = self.xyz_to_board(hackysack_pos)         # Should return a tuple of indices on the board
 
         # If the hackysack has not hit any spot on the board, return None
-        if board_pos[0] is None or board_pos[1] is None:
-            return None, None
+        if board_pos[0] == self.OUTOFBOUNDS or board_pos[1] == self.OUTOFBOUNDS:
+            return (self.OUTOFBOUNDS, self.OUTOFBOUNDS)
 
         if self.robot[board_pos] == self.WATER:
             return board_pos, self.MISS
@@ -308,9 +309,9 @@ class Board:
         # Find the board position pertaining to the hackysack
         board_pos = self.xyz_to_board(hackysack_pos)         # Should return a tuple of indices on the board
 
-                # If the hackysack has not hit any spot on the board, return None
-        if board_pos[0] is None or board_pos[1] is None:
-            return None, None
+        # If the hackysack has not hit any spot on the board, return None
+        if board_pos[0] == self.OUTOFBOUNDS or board_pos[1] == self.OUTOFBOUNDS:
+            return (self.OUTOFBOUNDS, self.OUTOFBOUNDS)
 
         if self.opponent[board_pos] == self.WATER:
             return board_pos, self.MISS

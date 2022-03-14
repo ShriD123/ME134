@@ -337,7 +337,7 @@ class Receiver:
         #     Goto5(self.curr_t+2*self.INIT_TIME+2*self.TRAVEL_TIME+2*self.OFFSET_TIME+self.GRASP_TIME, self.DROPOFF_ABOVE, self.DROPOFF_ABOVE, self.GRASP_TIME,'GripOff'),
         #     Goto5(self.curr_t+2*self.INIT_TIME+2*self.TRAVEL_TIME+2*self.OFFSET_TIME+2*self.GRASP_TIME, self.DROPOFF_ABOVE_joint, self.START_joint, self.TRAVEL_TIME,'Joint')])
       
-        self.INIT_TIME = 0.0                 
+        self.INIT_TIME = 0.1                 
     
 ###############################################################################
 #

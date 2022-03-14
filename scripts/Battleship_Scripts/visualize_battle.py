@@ -4,7 +4,7 @@ import rospy
 import math
 #import kinematics as kin
 import numpy as np
-import matplotlib as mpl
+
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.ticker import AutoMinorLocator
@@ -20,6 +20,7 @@ from algorithm import find_ships
 the current board and guesses on the monitor and plays sounds for hits or misses.'''
 
 # Turn matplotlib interactive mode on
+#plt.switch_backend('agg')
 plt.ion()
 
 plt.rcParams.update({'font.family':'monospace'})
@@ -131,7 +132,7 @@ class Visualizer:
         
         # Draw 
         self.fig.canvas.draw_idle()
-        self.fig.canvas.flush_events()
+        #self.fig.canvas.flush_events()
         
         # Create dictionary to convert A1 notation to (x, y)
         self.cell_lookup = {}
@@ -141,7 +142,7 @@ class Visualizer:
                 self.cell_lookup[rowcol] = (i, j)
         
         # Initialize the scoreboard
-        self.score = Scoreboard()
+        #self.score = Scoreboard()
 
 
     ########################################################################    
@@ -202,7 +203,7 @@ class Visualizer:
         self.update_scores(board, player=player)
         # Force the figure to pop up.
         self.fig.canvas.draw_idle()
-        self.fig.canvas.flush_events()
+        #self.fig.canvas.flush_events()
         
     # FUNCTION TO PUT A DOT AT DESIRED LOCATION SPECIFIED
     
@@ -222,7 +223,7 @@ class Visualizer:
         
         # Force the figure to pop up
         self.fig.canvas.draw_idle()
-        self.fig.canvas.flush_events()
+        #self.fig.canvas.flush_events()
     
     #-----------------------------------------------------------------------    
     # HELPER FUNCTIONS FOR draw_board
@@ -480,16 +481,16 @@ class Visualizer:
     # Declare Winner
     def declare_winner(self, winner):
         """ Winner either ROBOT or OPPONENT """
-        self.score.declare_winner(winner)
+        #self.score.declare_winner(winner)
         self.fig.canvas.draw_idle()
-        self.fig.canvas.flush_events()
+        #self.fig.canvas.flush_events()
     
     def update_scores(self, board, player='robot'):
         hit_value = np.ones((5, 5)) * self.HIT
         miss_value = np.ones((5, 5)) * self.MISS
         hits = np.count_nonzero(np.isclose(board, hit_value))
         miss = np.count_nonzero(np.isclose(board, miss_value))
-        self.score.update_score(hits, miss, player=player)
+        #self.score.update_score(hits, miss, player=player)
         
 
     
