@@ -9,7 +9,7 @@ from thrower import Thrower
 from visualize_battle import Visualizer
 from algorithm import Board
 import sys
-
+from std_msgs.msg import String
 sys.path.insert(1, '/home/me134/me134ws/src/ME134/scripts')
 import kinematics as kin
 from sensor_msgs.msg   import JointState
@@ -96,6 +96,10 @@ class Battleship:
         # Create publishers and subscribers for the Arms. Note that this combines all working motors.
         self.pub_motors = rospy.Publisher("/hebi/joint_commands", JointState, queue_size=5)
 
+        # Thrower pub
+        self.trpub = rospy.Publisher("/tr", String, queue_size=5)
+
+
         # Give some time for the publishers and subscribers to connect.
         rospy.sleep(0.50)
 
@@ -160,11 +164,17 @@ class Battleship:
             if victory:
                 # Passes in either 'ROBOT' or 'WINNER'
                 self.vis.declare_winner(winner)
+                
 
             # If the board has not changed from the last, don't update the visualizer
             if np.allclose(robot_board, self.plot_robotboard) and (np.allclose(human_board, self.plot_humanboard)):
                 pass
             else:
+                if not (np.allclose(robot_board, self.plot_robotboard)):
+                    if not victory:
+                        print('human board changed')
+                        trmsg = "Receive"
+                        self.trpub.publish(trmsg)
                 # Update board positions
                 self.plot_robotboard = np.copy(robot_board)
                 self.plot_robotships = robot_ships
@@ -175,10 +185,12 @@ class Battleship:
                 self.vis.draw_board(self.plot_humanboard, self.plot_humanships, player='human')
                 # Display robot target
                 self.vis.draw_nextmove(self.next_target, player='human')
+
             
+        
         # Compute next target
         self.next_target = self.alg.next_target()
-        print(self.next_target)
+        # print(self.next_target)
 
 ###############################################################################
 #

@@ -15,6 +15,7 @@ from urdf_parser_py.urdf import Robot
 #from ME134.msg import array
 from splines import CubicSpline, Goto, Hold, Stay, QuinticSpline, Goto5
 from ME134.msg import aruco_center
+from playsound import playsound
 
 '''VERSION OF THROWER CODE INTENDED ONLY FOR TESTING THROWER WITH VELOCITY.'''
 
@@ -187,6 +188,7 @@ class Thrower:
         self.is_waiting = False
 
         self.msg_sent = False
+        self.msg_length = 0
 
         self.target = (0, 0)
         self.board_size = 5
@@ -222,8 +224,23 @@ class Thrower:
                 if self.trajectory.is_empty():
                     self.is_waiting = True
                     if not self.msg_sent:
-                        trmsg = "Receive"
-                        self.trpub.publish(trmsg)
+                        print("waiting start")
+                        # detect_throw = False
+                        # first_detection = rospy.wait_for_message('/blob_loc', aruco_center)
+                        # start_msg_length = len(first_detection.datax)
+                        # # Tell the opponent to throw
+                        playsound('/home/me134/me134ws/src/ME134/sounds/go.mp3', False)
+                        print("Played sound")
+                        # while not detect_throw:
+                        #     detection = rospy.wait_for_message('/blob_loc', aruco_center)
+                        #     print("Check len change")
+                        #     if len(detection.datax) > start_msg_length:
+                        #         print("len changed")
+                        #         print(len(detection.datax))
+                        #         detect_throw = True
+                        # print("send receive")
+                        # trmsg = "Receive"
+                        # self.trpub.publish(trmsg)
                         self.msg_sent = True
                 else:
                     self.trajectory.pop_spline()
