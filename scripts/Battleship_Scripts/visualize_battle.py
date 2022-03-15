@@ -44,9 +44,13 @@ class Scoreboard(tk.Tk):
         # Scores
         self.robothits = ttk.Label(self, text='0 Hits', font=self.textfont)
         self.robotmiss = ttk.Label(self, text='0 Miss', font=self.textfont)
+        self.numrobhits = 0
+        self.numrobmiss = 0
         
         self.humanhits = ttk.Label(self, text='0 Hits', font=self.textfont)
         self.humanmiss = ttk.Label(self, text='0 Miss', font=self.textfont)
+        self.numhumhits = 0
+        self.numhummiss = 0
         
         # Dividing Line
         self.divider =ttk.Separator(self, orient='vertical').grid(column=1, row=0, rowspan=3, sticky='ns')
@@ -58,9 +62,27 @@ class Scoreboard(tk.Tk):
         # Tupdate the scoreboard based on readings
         # NOTE: Robot hits/miss shows hits on human board; thus why these are swapped
         if player == 'human':
+            # Play appropriate soudns
+            if (hits > self.numrobhits) or (miss > self.numrobmiss):
+                if hits > self.numrobhits:
+                    self.make_sound(hit=True)
+                elif miss > self.numrobmiss:
+                    self.make_sound(hit=False)
+            # Update values and scoreboard
+            self.numrobhits = hits
+            self.numrobmiss = miss
             self.robothits.config(text='{} Hits'.format(hits))
             self.robotmiss.config(text='{} Miss'.format(miss))
         elif player == 'robot':
+            # Play appropriate soudns
+            if (hits > self.numhumhits) or (miss > self.numhummiss):
+                if hits > self.numhumhits:
+                    self.make_sound(hit=True)
+                elif miss > self.numhummiss:
+                    self.make_sound(hit=False)
+            # Update values and scoreboard
+            self.numhumhits = hits
+            self.numhummiss = miss
             self.humanhits.config(text='{} Hits'.format(hits))
             self.humanmiss.config(text='{} Miss'.format(miss))
         self.update_GUI()
@@ -84,7 +106,24 @@ class Scoreboard(tk.Tk):
         self.robotmiss.grid(row=2, column=0)
         self.humanhits.grid(row=1, column=2)
         self.humanmiss.grid(row=2, column=2)
-    
+    #    
+    # Make Sounds of Hit/Miss
+    #
+    def make_sound(self, hit=False, win=False):
+    #     #TODO: Download the hit or miss audio & insert path
+        # Need to set False in playsound so that it will not block
+        path = '/home/me134/me134ws/src/ME134/'
+        hitpath = path + 'sounds/hit.mp3'
+        misspath = path + 'sounds/miss.wav'
+        if hit:
+            playsound(hitpath, False)
+        else:
+            playsound(misspath, False)
+        
+        if win:
+            # TODO play winner sound
+            pass
+
     # Destroy the scoreboard
     def close(self):
         self.destroy()
@@ -154,7 +193,7 @@ class Visualizer:
     ########################################################################    
     # FUNTION TO DRAW BOARD
     ######################################################################## 
-    def draw_board(self, board, ships, ship_sizes=[4, 3, 2], player='robot'):
+    def draw_board(self, board, ships, ship_sizes=[4, 3, 2], player='robot', hits=None, miss=None):
         """
         Board is 5x5 np array of state of board, for example:
         board = np.array([[0, 0, 0, 0, 0], 
@@ -166,6 +205,10 @@ class Visualizer:
         ship_sizes = [4, 3, 2]
         Ships is list of list of tuples defining (x, y) location of ships, for example:
         ships = [[(0, 3), (1, 3), (2, 3), (3, 3)], [(0, 2), (1, 2), (2, 2)], [(4, 0), (4, 1)]]
+        hits is prior number of hits
+        miss is prior number of misses
+        When passed, optional arguments hits and miss will allow function to detect if
+        there has been a change in scores, and play the appropriate sound
         """
         
         # Which player do we want to draw the board for
@@ -208,8 +251,10 @@ class Visualizer:
         
         # Update the player's score on the scoreboard
         self.update_scores(board, player=player)
+         
         # Force the figure to pop up.
         self.refresh_display()
+        
         
     # FUNCTION TO PUT A DOT AT DESIRED LOCATION SPECIFIED
     
@@ -472,15 +517,7 @@ class Visualizer:
     # Make Sounds of Hit/Miss
     #
     def make_sound(self, hit=False):
-    #     #TODO: Download the hit or miss audio & insert path
-        # Need to set False in playsound so that it will not block
-        path = '/home/me134/me134ws/src/ME134/'
-        hitpath = path + 'sounds/hit.mp3'
-        misspath = path + 'sounds/miss.wav'
-        if hit:
-            playsound(hitpath, False)
-        else:
-            playsound(misspath, False)
+        self.score.make_sound(hit=hit)
             
      
     # Declare Winner

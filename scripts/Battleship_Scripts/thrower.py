@@ -138,7 +138,7 @@ class Thrower:
         self.LOAD = np.array([-np.pi/2, 0.0]).reshape((2, 1))
         # TRAVEL TIME FOR TRAVERSES
         self.TRAVEL_TIME = 3.0
-        self.INIT_TIME = 1.0
+        self.INIT_TIME = 2.0
         self.trajectory = Trajectory([Goto5(self.curr_t, self.pos_init, self.LOAD, self.TRAVEL_TIME)])
 
 
@@ -371,7 +371,7 @@ class Thrower:
             # Move from initial position to loading position. (Initial may be the same as loading position)
             Goto5(self.curr_t,
                 self.LOAD, self.LOAD, self.INIT_TIME)])
-        self.INIT_TIME = 0.1
+        # self.INIT_TIME = 2.0
 
 
 ###############################################################################

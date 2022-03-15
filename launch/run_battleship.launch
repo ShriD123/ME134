@@ -49,11 +49,11 @@
     output="screen"
     required="true" />
 
-  <node
+  <!-- <node
     name="viewer"
     pkg="rqt_image_view"
     type="rqt_image_view"
-    required="true" />
+    required="true" /> -->
 
 
 </launch>
